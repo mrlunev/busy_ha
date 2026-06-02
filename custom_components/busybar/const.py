@@ -9,6 +9,11 @@ CONF_TOKEN = "token"
 DEFAULT_PORT = 80
 SCAN_INTERVAL = 5
 
+# Minimum device API contract we support (major of `system.api_semver`, e.g.
+# "23.0.0"). Older firmware exposes a different/incompatible API surface, so we
+# reject it at config time with a "please update firmware" message.
+MIN_API_MAJOR = 23
+
 APPLICATION_NAME = "home_assistant"
 PRIORITY_DEFAULT = 50
 PRIORITY_INTERRUPT = 91

@@ -50,6 +50,24 @@ async def test_user_flow_without_token(
     assert result["data"] == {CONF_HOST: "192.168.1.50", CONF_TOKEN: ""}
 
 
+async def test_user_flow_unsupported_version(
+    hass: HomeAssistant, mock_api: AsyncMock
+) -> None:
+    """Firmware below the supported API major is rejected with a clear error."""
+    mock_api.get_status.return_value = {
+        "device": {"serial_number": SERIAL},
+        "system": {"api_semver": "22.9.9"},
+    }
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], USER_INPUT
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "unsupported_version"}
+
+
 @pytest.mark.parametrize(
     ("error", "reason"),
     [

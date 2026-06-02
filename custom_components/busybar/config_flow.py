@@ -14,9 +14,22 @@ from homeassistant.const import CONF_HOST
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from .api import BusyBarApi, BusyBarApiError, BusyBarAuthError
-from .const import CONF_TOKEN, DOMAIN
+from .const import CONF_TOKEN, DOMAIN, MIN_API_MAJOR
 
 _LOGGER = logging.getLogger(__name__)
+
+
+class UnsupportedApiVersion(Exception):
+    """Device firmware exposes an API version older than we support."""
+
+
+def _api_major(status: dict) -> int | None:
+    """Major component of system.api_semver, or None if unknown/unparseable."""
+    sem = (status.get("system") or {}).get("api_semver")
+    try:
+        return int(str(sem).split(".")[0])
+    except (ValueError, AttributeError):
+        return None
 
 STEP_USER_SCHEMA = vol.Schema(
     {
@@ -32,6 +45,9 @@ async def _validate(hass, host: str, token: str) -> tuple[str, str]:
     """Return (serial, name) or raise. Raises BusyBarAuthError / BusyBarApiError."""
     api = BusyBarApi(host, token, async_get_clientsession(hass))
     status = await api.get_status()
+    major = _api_major(status)
+    if major is not None and major < MIN_API_MAJOR:
+        raise UnsupportedApiVersion(f"API v{major} < {MIN_API_MAJOR}")
     name = await api.get_name()
     serial = (status.get("device") or {}).get("serial_number")
     if not serial:
@@ -53,6 +69,8 @@ class BusyBarConfigFlow(ConfigFlow, domain=DOMAIN):
             token = (user_input.get(CONF_TOKEN) or "").strip()
             try:
                 serial, name = await _validate(self.hass, host, token)
+            except UnsupportedApiVersion:
+                errors["base"] = "unsupported_version"
             except BusyBarAuthError:
                 errors["base"] = "invalid_auth"
             except (BusyBarApiError, aiohttp.ClientError):
@@ -87,6 +105,8 @@ class BusyBarConfigFlow(ConfigFlow, domain=DOMAIN):
             token = (user_input.get(CONF_TOKEN) or "").strip()
             try:
                 serial, _ = await _validate(self.hass, host, token)
+            except UnsupportedApiVersion:
+                errors["base"] = "unsupported_version"
             except BusyBarAuthError:
                 errors["base"] = "invalid_auth"
             except (BusyBarApiError, aiohttp.ClientError):
