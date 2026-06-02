@@ -16,15 +16,16 @@ class BusyBarEntity(CoordinatorEntity[BusyBarCoordinator]):
 
     def __init__(self, coordinator: BusyBarCoordinator, key: str | None = None) -> None:
         super().__init__(coordinator)
-        entry_id = coordinator.config_entry.entry_id
         key = key or getattr(self, "_attr_translation_key", None) or "entity"
-        self._attr_unique_id = f"{entry_id}_{key}"
-        # Stable, device-name-independent entity_ids (e.g. sensor.busy_bar_battery)
-        # so shareable dashboards/blueprints work out of the box on single-bar
-        # installs. A second bar collides and gets a "_2" suffix (documented).
-        self._attr_suggested_object_id = f"busy_bar_{key}"
+        # Anchor identity on the hardware serial (config-entry unique_id), NOT the
+        # device name or entry_id. This survives: renaming the bar via its web UI,
+        # IP changes, and even deleting + re-adding the integration (re-links to the
+        # same physical device & its history). Fallback to entry_id only if the
+        # device somehow reported no serial.
+        serial = coordinator.config_entry.unique_id or coordinator.config_entry.entry_id
+        self._attr_unique_id = f"{serial}_{key}"
         self._attr_device_info = DeviceInfo(
-            identifiers={(DOMAIN, entry_id)},
+            identifiers={(DOMAIN, serial)},
             name=coordinator.data.device_name,
             manufacturer=MANUFACTURER,
             model="BUSY Bar",

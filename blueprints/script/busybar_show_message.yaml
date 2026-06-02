@@ -1,0 +1,58 @@
+blueprint:
+  name: BUSY Bar — Show message
+  author: BUSY
+  description: >
+    Reusable script that shows a text message on a BUSY Bar. You pick the bar
+    from a device dropdown, so it keeps working even if you rename the bar in its
+    web UI or in Home Assistant — the script targets the device, never a
+    name-derived entity_id. Import this once, then create one script per bar (or
+    pass the device at call time) — works the same on any number of bars.
+  domain: script
+  homeassistant:
+    min_version: "2024.6.0"
+  input:
+    bar:
+      name: BUSY Bar
+      description: Which bar to show the message on.
+      selector:
+        device:
+          integration: busybar
+          multiple: false
+    message:
+      name: Message
+      description: Text to display (printable ASCII; other characters become "?").
+      selector:
+        text:
+    color:
+      name: Color
+      description: Text color.
+      default: [255, 255, 255]
+      selector:
+        color_rgb:
+    duration:
+      name: Duration (seconds)
+      description: How long to keep the message on screen (0 = until replaced).
+      default: 10
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: s
+          mode: box
+    interrupt:
+      name: Interrupt current screen
+      description: Show on top of a running session/timer instead of queueing.
+      default: false
+      selector:
+        boolean:
+
+mode: parallel
+sequence:
+  - action: busybar.notify
+    target:
+      device_id: !input bar
+    data:
+      message: !input message
+      color: !input color
+      duration: !input duration
+      interrupt: !input interrupt

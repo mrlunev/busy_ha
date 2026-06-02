@@ -137,8 +137,10 @@ def _register_services(hass: HomeAssistant) -> None:
         return
 
     def _coordinators(call: ServiceCall) -> list[BusyBarCoordinator]:
+        # Key by the device-identifier value (hardware serial, == entry.unique_id),
+        # matching DeviceInfo.identifiers so target-by-device resolution works.
         loaded: dict[str, BusyBarCoordinator] = {
-            entry.entry_id: entry.runtime_data
+            (entry.unique_id or entry.entry_id): entry.runtime_data
             for entry in hass.config_entries.async_entries(DOMAIN)
             if entry.state is ConfigEntryState.LOADED and entry.runtime_data is not None
         }

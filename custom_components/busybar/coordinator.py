@@ -9,6 +9,7 @@ from datetime import timedelta
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
+from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
 
 from .api import BusyBarApi, BusyBarApiError, BusyBarAuthError
@@ -56,6 +57,7 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
             update_interval=timedelta(seconds=SCAN_INTERVAL),
         )
         self.api = api
+        self._synced_name: str | None = None
 
     async def _async_update_data(self) -> BusyBarRuntime:
         try:
@@ -118,8 +120,11 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
             update_install.get("action") not in (None, "none")
         )
 
+        device_name = name.get("name") or "BUSY Bar"
+        self._sync_device_name(device_name)
+
         return BusyBarRuntime(
-            device_name=(name.get("name") or "BUSY Bar"),
+            device_name=device_name,
             serial_number=device.get("serial_number"),
             firmware_version=str(firmware.get("version") or "unknown"),
             snapshot_type=stype,
@@ -139,6 +144,25 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
             update_latest=latest,
             update_in_progress=in_progress,
         )
+
+    def _sync_device_name(self, name: str) -> None:
+        """Propagate a rename done on the bar's web UI to the HA device registry.
+
+        The integration-provided ``name`` is updated; HA keeps any ``name_by_user``
+        override on top, so a user-chosen name in HA is never overwritten. Guarded
+        on change to avoid registry churn on every poll. On the first refresh the
+        device does not exist yet — entities create it with the correct name.
+        """
+        if name == self._synced_name:
+            return
+        serial = self.config_entry.unique_id or self.config_entry.entry_id
+        dev_reg = dr.async_get(self.hass)
+        device = dev_reg.async_get_device(identifiers={(DOMAIN, serial)})
+        if device is None:
+            return
+        self._synced_name = name
+        if device.name != name:
+            dev_reg.async_update_device(device.id, name=name)
 
 
 def _phase_from_snapshot(stype: str, paused: bool, interval_no: int | None) -> str:
