@@ -19,6 +19,10 @@ class BusyBarEntity(CoordinatorEntity[BusyBarCoordinator]):
         entry_id = coordinator.config_entry.entry_id
         key = key or getattr(self, "_attr_translation_key", None) or "entity"
         self._attr_unique_id = f"{entry_id}_{key}"
+        # Stable, device-name-independent entity_ids (e.g. sensor.busy_bar_battery)
+        # so shareable dashboards/blueprints work out of the box on single-bar
+        # installs. A second bar collides and gets a "_2" suffix (documented).
+        self._attr_suggested_object_id = f"busy_bar_{key}"
         self._attr_device_info = DeviceInfo(
             identifiers={(DOMAIN, entry_id)},
             name=coordinator.data.device_name,
