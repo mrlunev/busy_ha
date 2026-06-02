@@ -1,0 +1,82 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "BUSY Bar",
+        "description": "Enable the HTTP API on the device (Settings \u2192 API) and paste the token.",
+        "data": {
+          "host": "Host",
+          "token": "API token"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the BUSY Bar on your network.",
+          "token": "Long-lived API token shown on the device under Settings \u2192 API."
+        }
+      },
+      "reauth_confirm": {
+        "title": "Re-authenticate BUSY Bar",
+        "description": "The stored token for {host} was rejected. Enter a new API token.",
+        "data": {
+          "token": "API token"
+        },
+        "data_description": {
+          "token": "Generate a new token on the device under Settings \u2192 API."
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect. Check the host and that the device is reachable.",
+      "invalid_auth": "Invalid API token."
+    },
+    "abort": {
+      "already_configured": "This device is already configured.",
+      "reauth_successful": "Re-authentication was successful.",
+      "wrong_device": "The token belongs to a different BUSY Bar."
+    }
+  },
+  "entity": {
+    "sensor": {
+      "state": {
+        "name": "Timer state",
+        "state": {
+          "not_started": "Not started",
+          "infinite": "Open-ended",
+          "simple": "Timer",
+          "interval": "Pomodoro"
+        }
+      },
+      "phase": { "name": "Phase" },
+      "time_remaining": { "name": "Time remaining" },
+      "current_interval": { "name": "Current interval" },
+      "battery": { "name": "Battery" },
+      "wifi_signal": { "name": "Wi-Fi signal" },
+      "firmware": { "name": "Firmware" }
+    },
+    "binary_sensor": {
+      "active": { "name": "Active" },
+      "paused": { "name": "Paused" },
+      "charging": { "name": "Charging" }
+    },
+    "switch": {
+      "smart_home": { "name": "Smart home switch" }
+    },
+    "number": {
+      "brightness": { "name": "Brightness" },
+      "volume": { "name": "Volume" }
+    },
+    "select": {
+      "selector": { "name": "Selector" },
+      "theme_select": { "name": "Theme" }
+    },
+    "button": {
+      "ok": { "name": "Press OK" },
+      "back": { "name": "Press Back" },
+      "stop_busy": { "name": "Stop session" },
+      "pause_busy": { "name": "Pause session" },
+      "resume_busy": { "name": "Resume session" }
+    },
+    "update": {
+      "firmware_update": { "name": "Firmware" }
+    }
+  }
+}

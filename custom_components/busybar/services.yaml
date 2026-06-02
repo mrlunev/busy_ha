@@ -1,0 +1,283 @@
+notify:
+  target:
+    device:
+      integration: busybar
+  fields:
+    message:
+      required: true
+      example: "Laundry done!"
+      selector:
+        text:
+    title:
+      example: "Home Assistant"
+      selector:
+        text:
+    color:
+      example: [255, 255, 255]
+      selector:
+        object:
+    sound:
+      example: positive
+      selector:
+        select:
+          options:
+            - positive
+            - negative
+            - alarm
+            - notification
+            - none
+    display:
+      default: front
+      selector:
+        select:
+          options:
+            - front
+            - back
+            - both
+    duration:
+      default: 10
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
+    interrupt:
+      default: false
+      selector:
+        boolean:
+
+display_text:
+  target:
+    device:
+      integration: busybar
+  fields:
+    text:
+      required: true
+      selector:
+        text:
+    color:
+      example: [255, 0, 0]
+      selector:
+        object:
+    display:
+      default: front
+      selector:
+        select:
+          options:
+            - front
+            - back
+            - both
+    duration:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 86400
+          unit_of_measurement: seconds
+    interrupt:
+      default: false
+      selector:
+        boolean:
+
+display_image:
+  target:
+    device:
+      integration: busybar
+  fields:
+    image:
+      required: true
+      example: "shared/coffee.png"
+      selector:
+        text:
+    display:
+      default: front
+      selector:
+        select:
+          options: [front, back, both]
+    duration:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 86400
+          unit_of_measurement: seconds
+    interrupt:
+      default: false
+      selector:
+        boolean:
+
+display_animation:
+  target:
+    device:
+      integration: busybar
+  fields:
+    animation:
+      required: true
+      example: "shared/loading.anim"
+      selector:
+        text:
+    loop:
+      default: true
+      selector:
+        boolean:
+    display:
+      default: front
+      selector:
+        select:
+          options: [front, back, both]
+    duration:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 86400
+          unit_of_measurement: seconds
+    interrupt:
+      default: false
+      selector:
+        boolean:
+
+display_countdown:
+  target:
+    device:
+      integration: busybar
+  fields:
+    until:
+      required: true
+      example: "2026-06-01T16:00:00"
+      selector:
+        datetime:
+    color:
+      example: [255, 255, 255]
+      selector:
+        object:
+    display:
+      default: front
+      selector:
+        select:
+          options: [front, back, both]
+    interrupt:
+      default: false
+      selector:
+        boolean:
+
+start_busy:
+  target:
+    device:
+      integration: busybar
+  fields:
+    theme:
+      default: meeting
+      selector:
+        select:
+          options:
+            - meeting
+            - dnd
+            - on_call
+            - on_air
+            - flow
+            - lunch
+            - back_soon
+            - booked
+            - chill_time
+            - keep_out
+            - busy
+    duration:
+      selector:
+        number:
+          min: 1
+          max: 1440
+          unit_of_measurement: minutes
+
+start_pomodoro:
+  target:
+    device:
+      integration: busybar
+  fields:
+    work_minutes:
+      default: 25
+      selector:
+        number:
+          min: 1
+          max: 180
+    break_minutes:
+      default: 5
+      selector:
+        number:
+          min: 1
+          max: 60
+    cycles:
+      default: 4
+      selector:
+        number:
+          min: 1
+          max: 20
+    theme:
+      default: flow
+      selector:
+        select:
+          options:
+            - meeting
+            - dnd
+            - on_call
+            - on_air
+            - flow
+            - lunch
+            - back_soon
+            - booked
+            - chill_time
+            - keep_out
+            - busy
+
+set_theme:
+  target:
+    device:
+      integration: busybar
+  fields:
+    theme:
+      required: true
+      selector:
+        select:
+          options:
+            - meeting
+            - dnd
+            - on_call
+            - on_air
+            - flow
+            - lunch
+            - back_soon
+            - booked
+            - chill_time
+            - keep_out
+            - busy
+
+play_sound:
+  target:
+    device:
+      integration: busybar
+  fields:
+    sound:
+      required: true
+      selector:
+        select:
+          options:
+            - positive
+            - negative
+            - alarm
+            - notification
+
+clear:
+  target:
+    device: {}
+
+stop_busy:
+  target:
+    device: {}
+
+pause_busy:
+  target:
+    device: {}
+
+resume_busy:
+  target:
+    device: {}
