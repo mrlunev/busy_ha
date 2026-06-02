@@ -1,0 +1,88 @@
+"""Button platform."""
+
+from __future__ import annotations
+
+from homeassistant.components.button import ButtonEntity
+from homeassistant.config_entries import ConfigEntry
+from homeassistant.core import HomeAssistant
+from homeassistant.exceptions import HomeAssistantError
+from homeassistant.helpers.entity_platform import AddEntitiesCallback
+
+from .api import BusyBarApiError
+from .coordinator import BusyBarCoordinator
+from .entity import BusyBarEntity
+
+
+PARALLEL_UPDATES = 1
+
+
+async def async_setup_entry(
+    hass: HomeAssistant,
+    entry: ConfigEntry,
+    async_add_entities: AddEntitiesCallback,
+) -> None:
+    coordinator: BusyBarCoordinator = entry.runtime_data
+    async_add_entities(
+        [
+            BusyBarKeyButton(coordinator, "ok", "ok"),
+            BusyBarKeyButton(coordinator, "back", "back"),
+            BusyBarStopButton(coordinator),
+            BusyBarPauseButton(coordinator),
+            BusyBarResumeButton(coordinator),
+        ]
+    )
+
+
+class BusyBarKeyButton(BusyBarEntity, ButtonEntity):
+    def __init__(self, coordinator: BusyBarCoordinator, key: str, translation_key: str) -> None:
+        super().__init__(coordinator, key=translation_key)
+        self._key = key
+        self._attr_translation_key = translation_key
+
+    async def async_press(self) -> None:
+        try:
+            await self.coordinator.api.send_key(self._key)
+        except BusyBarApiError as err:
+            raise HomeAssistantError(str(err)) from err
+        await self.coordinator.async_request_refresh()
+
+
+class BusyBarStopButton(BusyBarEntity, ButtonEntity):
+    _attr_translation_key = "stop_busy"
+
+    async def async_press(self) -> None:
+        try:
+            await self.coordinator.api.stop_busy()
+        except BusyBarApiError as err:
+            raise HomeAssistantError(str(err)) from err
+        await self.coordinator.async_request_refresh()
+
+
+class BusyBarPauseButton(BusyBarEntity, ButtonEntity):
+    _attr_translation_key = "pause_busy"
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.coordinator.data.active and not self.coordinator.data.paused
+
+    async def async_press(self) -> None:
+        try:
+            await self.coordinator.api.pause_busy()
+        except BusyBarApiError as err:
+            raise HomeAssistantError(str(err)) from err
+        await self.coordinator.async_request_refresh()
+
+
+class BusyBarResumeButton(BusyBarEntity, ButtonEntity):
+    _attr_translation_key = "resume_busy"
+
+    @property
+    def available(self) -> bool:
+        return super().available and self.coordinator.data.active and self.coordinator.data.paused
+
+    async def async_press(self) -> None:
+        try:
+            await self.coordinator.api.resume_busy()
+        except BusyBarApiError as err:
+            raise HomeAssistantError(str(err)) from err
+        await self.coordinator.async_request_refresh()
