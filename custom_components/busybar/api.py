@@ -94,6 +94,28 @@ class BusyBarApi:
             params={"volume": volume, "silent": 1 if silent else 0},
         )
 
+    async def get_screen_b64(self, display: int = 0) -> str:
+        """Return the current display frame as a base64 string.
+
+        ``/api/screen`` responds with ``Content-Type: image/bmp`` but the body
+        is base64-encoded raw pixels (not a BMP file and not JSON), so this
+        bypasses ``_request``'s JSON parsing.
+        """
+        url = f"{self._base}/api/screen"
+        async with self._session.request(
+            "GET",
+            url,
+            headers=self._headers(),
+            params={"display": display},
+            timeout=aiohttp.ClientTimeout(total=15),
+        ) as resp:
+            body = await resp.text()
+            if resp.status in (401, 403):
+                raise BusyBarAuthError(f"GET /api/screen -> {resp.status}")
+            if resp.status >= 400:
+                raise BusyBarApiError(f"GET /api/screen -> {resp.status}: {body[:200]}")
+            return body.strip()
+
     async def get_pairing(self) -> dict:
         return await self._request("GET", "/api/smart_home/pairing")
 

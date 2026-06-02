@@ -26,7 +26,8 @@
     },
     "error": {
       "cannot_connect": "Failed to connect. Check the host and that the device is reachable.",
-      "invalid_auth": "Invalid API token."
+      "invalid_auth": "Invalid API token.",
+      "unsupported_version": "This BUSY Bar runs a firmware whose API is too old for this integration. Please update the device firmware and try again."
     },
     "abort": {
       "already_configured": "This device is already configured.",
@@ -77,6 +78,9 @@
     },
     "update": {
       "firmware_update": { "name": "Firmware" }
+    },
+    "image": {
+      "screen": { "name": "Screen" }
     }
   }
 }
