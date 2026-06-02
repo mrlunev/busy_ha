@@ -31,7 +31,11 @@ class BusyBarApi:
         self._session = session
 
     def _headers(self) -> dict[str, str]:
-        return {"X-API-Token": self._token}
+        # Auth is optional on the device: only sent when the user enabled
+        # "Password protection" and provided that password as the token.
+        if self._token:
+            return {"X-API-Token": self._token}
+        return {}
 
     async def _request(
         self,
@@ -51,6 +55,8 @@ class BusyBarApi:
             timeout=aiohttp.ClientTimeout(total=15),
         ) as resp:
             body = await resp.text()
+            if resp.status in (401, 403):
+                raise BusyBarAuthError(f"{method} {path} -> {resp.status}: {body[:200]}")
             if resp.status >= 400:
                 raise BusyBarApiError(f"{method} {path} -> {resp.status}: {body[:200]}")
             if not body:

@@ -36,6 +36,20 @@ async def test_user_flow_success(
     assert result["data"] == USER_INPUT
 
 
+async def test_user_flow_without_token(
+    hass: HomeAssistant, mock_api: AsyncMock, mock_setup_entry: AsyncMock
+) -> None:
+    """A device without Password protection is added with an empty token."""
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_HOST: "192.168.1.50"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {CONF_HOST: "192.168.1.50", CONF_TOKEN: ""}
+
+
 @pytest.mark.parametrize(
     ("error", "reason"),
     [

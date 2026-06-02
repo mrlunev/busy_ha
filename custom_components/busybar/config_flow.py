@@ -21,7 +21,9 @@ _LOGGER = logging.getLogger(__name__)
 STEP_USER_SCHEMA = vol.Schema(
     {
         vol.Required(CONF_HOST): str,
-        vol.Required(CONF_TOKEN): str,
+        # Auth is optional on the device — leave empty unless "Password
+        # protection" is enabled on the BUSY Bar.
+        vol.Optional(CONF_TOKEN, default=""): str,
     }
 )
 
@@ -48,7 +50,7 @@ class BusyBarConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             host = user_input[CONF_HOST].strip()
-            token = user_input[CONF_TOKEN].strip()
+            token = (user_input.get(CONF_TOKEN) or "").strip()
             try:
                 serial, name = await _validate(self.hass, host, token)
             except BusyBarAuthError:
@@ -82,7 +84,7 @@ class BusyBarConfigFlow(ConfigFlow, domain=DOMAIN):
         reauth_entry = self._get_reauth_entry()
         host = reauth_entry.data[CONF_HOST]
         if user_input is not None:
-            token = user_input[CONF_TOKEN].strip()
+            token = (user_input.get(CONF_TOKEN) or "").strip()
             try:
                 serial, _ = await _validate(self.hass, host, token)
             except BusyBarAuthError:
@@ -98,7 +100,7 @@ class BusyBarConfigFlow(ConfigFlow, domain=DOMAIN):
 
         return self.async_show_form(
             step_id="reauth_confirm",
-            data_schema=vol.Schema({vol.Required(CONF_TOKEN): str}),
+            data_schema=vol.Schema({vol.Optional(CONF_TOKEN, default=""): str}),
             description_placeholders={"host": host},
             errors=errors,
         )

@@ -3,24 +3,24 @@
     "step": {
       "user": {
         "title": "BUSY Bar",
-        "description": "Enable the HTTP API on the device (Settings \u2192 API) and paste the token.",
+        "description": "Enable HTTP API access on the device (Settings \u2192 API). A token is only needed if you turned on Password protection.",
         "data": {
           "host": "Host",
-          "token": "API token"
+          "token": "API token (optional)"
         },
         "data_description": {
           "host": "IP address or hostname of the BUSY Bar on your network.",
-          "token": "Long-lived API token shown on the device under Settings \u2192 API."
+          "token": "Only required if Password protection is enabled on the device (Settings \u2192 API). Leave empty otherwise."
         }
       },
       "reauth_confirm": {
         "title": "Re-authenticate BUSY Bar",
-        "description": "The stored token for {host} was rejected. Enter a new API token.",
+        "description": "The stored token for {host} was rejected. Enter the current API token, or leave empty if Password protection is now disabled.",
         "data": {
-          "token": "API token"
+          "token": "API token (optional)"
         },
         "data_description": {
-          "token": "Generate a new token on the device under Settings \u2192 API."
+          "token": "The Password protection value set on the device (Settings \u2192 API). Leave empty if protection is disabled."
         }
       }
     },
