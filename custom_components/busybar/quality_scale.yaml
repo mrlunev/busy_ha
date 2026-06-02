@@ -1,0 +1,104 @@
+rules:
+  # ------------------------------------------------------------------ Bronze
+  config-flow: done
+  test-before-configure: done
+  test-before-setup: done
+  unique-config-entry: done
+  config-flow-test-coverage:
+    status: todo
+    comment: Test suite scaffolded under tests/; coverage to be completed before core PR.
+  runtime-data: done
+  entity-unique-id: done
+  has-entity-name: done
+  entity-event-setup: done
+  appropriate-polling: done
+  common-modules: done
+  action-setup: done
+  dependency-transparency:
+    status: todo
+    comment: >-
+      API client is bundled in api.py. Must be extracted to a published PyPI
+      package and added to manifest requirements before core submission.
+  docs-high-level-description:
+    status: todo
+    comment: README covers it; home-assistant.io docs PR pending.
+  docs-installation-instructions:
+    status: todo
+    comment: README covers it; home-assistant.io docs PR pending.
+  docs-removal-instructions:
+    status: todo
+    comment: README covers it; home-assistant.io docs PR pending.
+  docs-actions:
+    status: todo
+    comment: services.yaml + README cover it; home-assistant.io docs PR pending.
+  brands:
+    status: todo
+    comment: Logo/icon PR to home-assistant/brands pending.
+
+  # ------------------------------------------------------------------ Silver
+  action-exceptions: done
+  config-entry-unloading: done
+  entity-unavailable: done
+  integration-owner: done
+  log-when-unavailable: done
+  parallel-updates: done
+  reauthentication-flow: done
+  test-coverage:
+    status: todo
+    comment: Targeting >95%; tests scaffolded, completion pending.
+  docs-configuration-parameters:
+    status: todo
+    comment: home-assistant.io docs PR pending.
+  docs-installation-parameters:
+    status: todo
+    comment: home-assistant.io docs PR pending.
+
+  # ------------------------------------------------------------------ Gold
+  entity-category: done
+  entity-device-class: done
+  entity-disabled-by-default: done
+  entity-translations: done
+  devices: done
+  diagnostics:
+    status: todo
+  discovery:
+    status: todo
+    comment: Device exposes mDNS; zeroconf discovery to be added.
+  discovery-update-info:
+    status: todo
+  reconfiguration-flow:
+    status: todo
+  repair-issues:
+    status: todo
+  exception-translations:
+    status: todo
+  icon-translations:
+    status: todo
+  docs-data-update:
+    status: todo
+  docs-examples:
+    status: todo
+  docs-known-limitations:
+    status: todo
+  docs-supported-devices:
+    status: todo
+  docs-supported-functions:
+    status: todo
+  docs-troubleshooting:
+    status: todo
+  docs-use-cases:
+    status: todo
+  dynamic-devices:
+    status: exempt
+    comment: One physical device per config entry; no dynamic sub-devices.
+  stale-devices:
+    status: exempt
+    comment: One physical device per config entry; removed by deleting the entry.
+
+  # --------------------------------------------------------------- Platinum
+  async-dependency:
+    status: todo
+    comment: Pending PyPI client extraction.
+  inject-websession: done
+  strict-typing:
+    status: todo
