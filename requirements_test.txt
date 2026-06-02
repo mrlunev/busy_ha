@@ -1,0 +1,4 @@
+# Test dependencies for the BUSY Bar integration.
+# Pin pytest-homeassistant-custom-component to the version matching the
+# Home Assistant release you target, then run:  pytest tests/
+pytest-homeassistant-custom-component
