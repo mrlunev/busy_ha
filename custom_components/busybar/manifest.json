@@ -3,6 +3,9 @@
   "name": "BUSY Bar",
   "codeowners": ["@busy-bar"],
   "config_flow": true,
+  "dhcp": [
+    { "macaddress": "8C8B48*" }
+  ],
   "documentation": "https://github.com/busy-bar/busy_ha",
   "integration_type": "device",
   "iot_class": "local_polling",

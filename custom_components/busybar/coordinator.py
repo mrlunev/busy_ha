@@ -104,6 +104,15 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
         phase = _phase_from_snapshot(stype, paused, interval_no)
 
         device = (status.get("device") or {}) if status else {}
+        # Guard against a DHCP IP reshuffle silently pointing our host at a
+        # DIFFERENT bar: never surface another device's data under this entry.
+        reported_serial = device.get("serial_number")
+        expected_serial = self.config_entry.unique_id
+        if expected_serial and reported_serial and reported_serial != expected_serial:
+            raise UpdateFailed(
+                f"Host now reports serial {reported_serial}, expected {expected_serial} — "
+                "it points to a different BUSY Bar (likely a changed IP address)"
+            )
         power = (status.get("power") or {}) if status else {}
         firmware = (status.get("firmware") or {}) if status else {}
         # "charged" = full but still on USB; only "charging" means actively charging.

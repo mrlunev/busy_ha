@@ -22,8 +22,19 @@
         "data_description": {
           "token": "The Password protection value set on the device (Settings \u2192 API). Leave empty if protection is disabled."
         }
+      },
+      "discovery_confirm": {
+        "title": "BUSY Bar",
+        "description": "Found {name} at {host}. Add it to Home Assistant? A token is only needed if Password protection is enabled on the device.",
+        "data": {
+          "token": "API token (optional)"
+        },
+        "data_description": {
+          "token": "Only required if Password protection is enabled on the device (Settings \u2192 API). Leave empty otherwise."
+        }
       }
     },
+    "flow_title": "{name} ({host})",
     "error": {
       "cannot_connect": "Failed to connect. Check the host and that the device is reachable.",
       "invalid_auth": "Invalid API token.",
@@ -54,6 +65,7 @@
       "firmware": { "name": "Firmware" }
     },
     "binary_sensor": {
+      "connectivity": { "name": "Connectivity" },
       "active": { "name": "Active" },
       "paused": { "name": "Paused" },
       "charging": { "name": "Charging" }
