@@ -1,0 +1,8 @@
+# Normalize line endings: text files are LF in the repo (HA core convention),
+# which stops phantom CRLF "modified" churn on Windows checkouts.
+* text=auto eol=lf
+
+# Binary assets must never be line-ending normalized.
+*.png binary
+*.bmp binary
+*.ico binary
