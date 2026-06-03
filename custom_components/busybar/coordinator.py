@@ -43,6 +43,13 @@ class BusyBarRuntime:
     smart_home_available: bool
     update_latest: str | None
     update_in_progress: bool
+    wifi_mac: str | None
+    usb_mac: str | None
+    ble_mac: str | None
+    boot_time: int | None
+    battery_voltage: int | None
+    battery_current: int | None
+    usb_voltage: int | None
 
 
 class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
@@ -115,6 +122,7 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
             )
         power = (status.get("power") or {}) if status else {}
         firmware = (status.get("firmware") or {}) if status else {}
+        system = (status.get("system") or {}) if status else {}
         # "charged" = full but still on USB; only "charging" means actively charging.
         charging = power.get("state") == "charging"
 
@@ -152,6 +160,13 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
             smart_home_available=fabric_count > 0,
             update_latest=latest,
             update_in_progress=in_progress,
+            wifi_mac=device.get("wifi_mac"),
+            usb_mac=device.get("usb_mac"),
+            ble_mac=device.get("ble_mac"),
+            boot_time=system.get("boot_time") if isinstance(system.get("boot_time"), int) else None,
+            battery_voltage=power.get("battery_voltage") if isinstance(power.get("battery_voltage"), int) else None,
+            battery_current=power.get("battery_current") if isinstance(power.get("battery_current"), int) else None,
+            usb_voltage=power.get("usb_voltage") if isinstance(power.get("usb_voltage"), int) else None,
         )
 
     def _sync_device_name(self, name: str) -> None:

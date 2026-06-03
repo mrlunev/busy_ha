@@ -2,11 +2,22 @@
 
 from __future__ import annotations
 
-from homeassistant.components.sensor import SensorEntity
+from datetime import datetime
+
+from homeassistant.components.sensor import (
+    SensorDeviceClass,
+    SensorEntity,
+    SensorStateClass,
+)
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import EntityCategory
+from homeassistant.const import (
+    EntityCategory,
+    UnitOfElectricCurrent,
+    UnitOfElectricPotential,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
+from homeassistant.util import dt as dt_util
 
 from .coordinator import BusyBarCoordinator
 from .entity import BusyBarEntity
@@ -30,6 +41,10 @@ async def async_setup_entry(
             BusyBarBatterySensor(coordinator),
             BusyBarWifiSensor(coordinator),
             BusyBarFirmwareSensor(coordinator),
+            BusyBarLastBootSensor(coordinator),
+            BusyBarBatteryVoltageSensor(coordinator),
+            BusyBarBatteryCurrentSensor(coordinator),
+            BusyBarUsbVoltageSensor(coordinator),
         ]
     )
 
@@ -102,3 +117,58 @@ class BusyBarFirmwareSensor(BusyBarEntity, SensorEntity):
     @property
     def native_value(self) -> str:
         return self.coordinator.data.firmware_version
+
+
+class BusyBarLastBootSensor(BusyBarEntity, SensorEntity):
+    _attr_translation_key = "last_boot"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    @property
+    def native_value(self) -> datetime | None:
+        boot = self.coordinator.data.boot_time
+        return dt_util.utc_from_timestamp(boot) if boot else None
+
+
+class BusyBarBatteryVoltageSensor(BusyBarEntity, SensorEntity):
+    _attr_translation_key = "battery_voltage"
+    _attr_device_class = SensorDeviceClass.VOLTAGE
+    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+    _attr_suggested_display_precision = 3
+
+    @property
+    def native_value(self) -> float | None:
+        mv = self.coordinator.data.battery_voltage
+        return mv / 1000 if mv is not None else None
+
+
+class BusyBarBatteryCurrentSensor(BusyBarEntity, SensorEntity):
+    _attr_translation_key = "battery_current"
+    _attr_device_class = SensorDeviceClass.CURRENT
+    _attr_native_unit_of_measurement = UnitOfElectricCurrent.MILLIAMPERE
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+
+    @property
+    def native_value(self) -> int | None:
+        return self.coordinator.data.battery_current
+
+
+class BusyBarUsbVoltageSensor(BusyBarEntity, SensorEntity):
+    _attr_translation_key = "usb_voltage"
+    _attr_device_class = SensorDeviceClass.VOLTAGE
+    _attr_native_unit_of_measurement = UnitOfElectricPotential.VOLT
+    _attr_state_class = SensorStateClass.MEASUREMENT
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+    _attr_entity_registry_enabled_default = False
+    _attr_suggested_display_precision = 3
+
+    @property
+    def native_value(self) -> float | None:
+        mv = self.coordinator.data.usb_voltage
+        return mv / 1000 if mv is not None else None

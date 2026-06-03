@@ -62,7 +62,11 @@
       "current_interval": { "name": "Current interval" },
       "battery": { "name": "Battery" },
       "wifi_signal": { "name": "Wi-Fi signal" },
-      "firmware": { "name": "Firmware" }
+      "firmware": { "name": "Firmware" },
+      "last_boot": { "name": "Last boot" },
+      "battery_voltage": { "name": "Battery voltage" },
+      "battery_current": { "name": "Battery current" },
+      "usb_voltage": { "name": "USB voltage" }
     },
     "binary_sensor": {
       "connectivity": { "name": "Connectivity" },
