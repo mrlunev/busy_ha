@@ -1,4 +1,14 @@
 # Test dependencies for the BUSY Bar integration.
-# Pin pytest-homeassistant-custom-component to the version matching the
-# Home Assistant release you target, then run:  pytest tests/
+#
+# pytest-homeassistant-custom-component pulls in the matching Home Assistant
+# release; pip selects the newest version compatible with your Python. Pin it
+# to the HA release you target before a core submission.
+#
+# Run from the repo root:
+#   pytest                         # uses pyproject.toml (coverage on by default)
+#
+# Windows note: newer HA imports the Unix-only fcntl/resource modules at import
+# time. A no-op shim is provided via a sitecustomize.py inside the local .venv
+# (see SESSION_HANDOFF); CI on Linux/macOS needs no shim.
 pytest-homeassistant-custom-component
+pytest-cov
