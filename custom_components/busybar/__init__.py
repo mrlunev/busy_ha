@@ -26,7 +26,10 @@ from .const import (
     DOMAIN,
     PRIORITY_DEFAULT,
     PRIORITY_INTERRUPT,
+    SCROLL_RATES,
+    STOCK_ICONS,
     STOCK_SOUNDS,
+    TEXT_FONTS,
     THEMES,
 )
 from .coordinator import BusyBarConfigEntry, BusyBarCoordinator
@@ -80,11 +83,22 @@ def _displays(display: str) -> list[str]:
     return [display]
 
 
+def _scroll_rate(scroll: str, text: str) -> int:
+    """Resolve a named scroll speed to a scroll_rate (pixels/minute).
+
+    "auto" scrolls only when the text is long enough to overflow the panel.
+    """
+    if scroll == "auto":
+        return SCROLL_RATES["normal"] if len(text) > 12 else 0
+    return SCROLL_RATES.get(scroll, 0)
+
+
 def _asset_ref(value: str) -> dict:
     """Map an asset string to {stock_path} or {path}.
 
-    Stock assets shipped in firmware live under "shared/" (e.g.
-    "shared/laundry.png"); anything else is treated as an app asset path.
+    Stock assets shipped in firmware live under "shared/" with a sub-folder and
+    file extension (e.g. "shared/images/checkmark_front_8x8.image"); anything
+    else is treated as an app asset path uploaded via /api/assets/upload.
     """
     if value.startswith("shared/"):
         return {"stock_path": value}
@@ -191,11 +205,19 @@ def _register_services(hass: HomeAssistant) -> None:
         title = call.data.get("title")
         color = call.data.get("color", [255, 255, 255])
         sound = call.data.get("sound", "none")
+        icon = call.data.get("icon", "none")
+        font = call.data.get("font", "normal")
+        scroll = call.data.get("scroll", "auto")
         display = call.data.get("display", "front")
         duration = int(call.data.get("duration", 10))
         interrupt = call.data.get("interrupt", False)
         priority = PRIORITY_INTERRUPT if interrupt else PRIORITY_DEFAULT
         hex_color = _rgb_to_hexaa(color)
+
+        icon_path = STOCK_ICONS.get(icon) if icon and icon != "none" else None
+        # Leave room for the icon on the left; the curated icons are <=12px wide.
+        text_x = 14 if icon_path else 0
+        rate = _scroll_rate(scroll, message)
 
         for coord in _coordinators(call):
             elements = []
@@ -215,19 +237,46 @@ def _register_services(hass: HomeAssistant) -> None:
                         }
                     )
                     eid += 1
-                elements.append(
-                    {
-                        "id": str(eid),
-                        "type": "text",
-                        "text": _ascii(message[:80]),
-                        "font": "normal",
-                        "color": hex_color,
-                        "display": disp,
-                        "align": "center",
-                        "timeout": duration,
-                        "scroll_rate": 1200 if len(message) > 12 else 0,
-                    }
-                )
+                if icon_path:
+                    elements.append(
+                        {
+                            "id": str(eid),
+                            "type": "image",
+                            "stock_path": icon_path,
+                            "display": disp,
+                            "align": "mid_left",
+                            "x": 0,
+                            "y": 8,
+                            "timeout": duration,
+                        }
+                    )
+                    eid += 1
+                msg: dict[str, Any] = {
+                    "id": str(eid),
+                    "type": "text",
+                    "text": _ascii(message[:80]),
+                    "font": font,
+                    "color": hex_color,
+                    "display": disp,
+                    "timeout": duration,
+                }
+                if rate:
+                    # Scrolling text is left-anchored and clipped to a width so it
+                    # marquees within the space left of the icon (if any).
+                    msg["align"] = "mid_left"
+                    msg["x"] = text_x
+                    msg["y"] = 8
+                    msg["scroll_rate"] = rate
+                    msg["width"] = 72 - text_x
+                elif icon_path:
+                    msg["align"] = "mid_left"
+                    msg["x"] = text_x
+                    msg["y"] = 8
+                else:
+                    msg["align"] = "center"
+                    msg["x"] = 36
+                    msg["y"] = 8
+                elements.append(msg)
                 eid += 1
             await coord.api.draw(
                 {
@@ -391,6 +440,9 @@ def _register_services(hass: HomeAssistant) -> None:
             {
                 vol.Required("message"): cv.string,
                 vol.Optional("title"): cv.string,
+                vol.Optional("icon", default="none"): vol.In(list(STOCK_ICONS.keys()) + ["none"]),
+                vol.Optional("font", default="normal"): vol.In(TEXT_FONTS),
+                vol.Optional("scroll", default="auto"): vol.In(["auto", *SCROLL_RATES.keys()]),
                 vol.Optional("color"): vol.All(cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(0, 255))]),
                 vol.Optional("sound"): vol.In(list(STOCK_SOUNDS.keys()) + ["none"]),
                 vol.Optional("display", default="front"): vol.In(["front", "back", "both"]),

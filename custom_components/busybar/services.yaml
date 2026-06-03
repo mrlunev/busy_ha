@@ -12,19 +12,55 @@ notify:
       example: "Home Assistant"
       selector:
         text:
-    color:
-      example: [255, 255, 255]
-      selector:
-        object:
-    sound:
-      example: positive
+    icon:
+      default: none
+      example: check
       selector:
         select:
           options:
-            - positive
-            - negative
-            - alarm
-            - notification
+            - none
+            - check
+            - error
+            - info
+            - clock
+            - hourglass
+            - low_battery
+            - start
+            - setup
+    font:
+      default: normal
+      selector:
+        select:
+          options:
+            - tiny
+            - small
+            - normal
+            - condensed
+            - bold
+            - large
+            - extra_large
+    scroll:
+      default: auto
+      selector:
+        select:
+          options:
+            - auto
+            - "off"
+            - slow
+            - normal
+            - fast
+    color:
+      example: [255, 255, 255]
+      selector:
+        color_rgb:
+    sound:
+      example: event
+      selector:
+        select:
+          options:
+            - event
+            - reminder
+            - volume
             - none
     display:
       default: front
@@ -86,7 +122,7 @@ display_image:
   fields:
     image:
       required: true
-      example: "shared/coffee.png"
+      example: "shared/images/checkmark_front_8x8.image"
       selector:
         text:
     display:
@@ -113,7 +149,7 @@ display_animation:
   fields:
     animation:
       required: true
-      example: "shared/loading.anim"
+      example: "shared/animations/meeting_72x16.anim"
       selector:
         text:
     loop:
@@ -258,13 +294,13 @@ play_sound:
   fields:
     sound:
       required: true
+      example: event
       selector:
         select:
           options:
-            - positive
-            - negative
-            - alarm
-            - notification
+            - event
+            - reminder
+            - volume
 
 clear:
   target:

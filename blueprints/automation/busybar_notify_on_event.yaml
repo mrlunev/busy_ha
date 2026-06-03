@@ -1,0 +1,138 @@
+blueprint:
+  name: BUSY Bar — Notify on event
+  author: BUSY
+  description: >
+    When a chosen entity reaches a chosen state (e.g. your washing machine goes
+    to "off"/"finished"), show an icon plus a message on a BUSY Bar — with the
+    icon, font, scroll speed, color and sound picked from the integration's
+    presets. You select the bar from a device dropdown, so it keeps working even
+    if the bar is renamed (it targets the device, not a name-derived entity_id),
+    and works the same on any number of bars.
+
+    Note: the panel renders printable ASCII only — non-ASCII characters in the
+    message become "?".
+  domain: automation
+  homeassistant:
+    min_version: "2024.6.0"
+  input:
+    trigger_entity:
+      name: Trigger entity
+      description: The entity to watch (sensor, binary_sensor, switch, …).
+      selector:
+        entity: {}
+    to_state:
+      name: Trigger state
+      description: >
+        Fire when the entity changes TO this state (e.g. "off", "finished",
+        "on", "home").
+      default: "off"
+      selector:
+        text:
+    bar:
+      name: BUSY Bar
+      description: Which bar to notify.
+      selector:
+        device:
+          integration: busybar
+          multiple: false
+    message:
+      name: Message
+      description: Text to display (printable ASCII; other characters become "?").
+      default: "Done!"
+      selector:
+        text:
+    icon:
+      name: Icon
+      description: Icon shown to the left of the text.
+      default: check
+      selector:
+        select:
+          options:
+            - none
+            - check
+            - error
+            - info
+            - clock
+            - hourglass
+            - low_battery
+            - start
+            - setup
+    font:
+      name: Font
+      description: Text font.
+      default: normal
+      selector:
+        select:
+          options:
+            - tiny
+            - small
+            - normal
+            - condensed
+            - bold
+            - large
+            - extra_large
+    scroll:
+      name: Scroll
+      description: >
+        Marquee speed. "auto" scrolls only when the text is too long to fit.
+      default: auto
+      selector:
+        select:
+          options:
+            - auto
+            - "off"
+            - slow
+            - normal
+            - fast
+    color:
+      name: Color
+      description: Text color.
+      default: [255, 255, 255]
+      selector:
+        color_rgb:
+    sound:
+      name: Sound
+      description: Optional sound to play with the notification.
+      default: none
+      selector:
+        select:
+          options:
+            - none
+            - event
+            - reminder
+            - volume
+    duration:
+      name: Duration (seconds)
+      description: How long to keep the message on screen (0 = until replaced).
+      default: 15
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: s
+          mode: box
+    interrupt:
+      name: Interrupt current screen
+      description: Show on top of a running session/timer instead of queueing.
+      default: true
+      selector:
+        boolean:
+
+mode: single
+trigger:
+  - platform: state
+    entity_id: !input trigger_entity
+    to: !input to_state
+action:
+  - action: busybar.notify
+    target:
+      device_id: !input bar
+    data:
+      message: !input message
+      icon: !input icon
+      font: !input font
+      scroll: !input scroll
+      color: !input color
+      sound: !input sound
+      duration: !input duration
+      interrupt: !input interrupt
