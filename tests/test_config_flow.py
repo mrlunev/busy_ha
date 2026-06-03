@@ -130,6 +130,10 @@ async def test_dhcp_discovery_success(
     )
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "discovery_confirm"
+    # flow_title "{name} ({host})" needs both placeholders or the card shows a
+    # formatjs MISSING_VALUE error.
+    flow = hass.config_entries.flow.async_progress()[0]
+    assert flow["context"]["title_placeholders"]["host"] == "192.168.1.77"
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY

@@ -92,7 +92,12 @@ class BusyBarConfigFlow(ConfigFlow, domain=DOMAIN):
             self._abort_if_unique_id_configured(updates={CONF_HOST: host})
             self._discovered_name = name
 
-        self.context["title_placeholders"] = {"name": self._discovered_name or "BUSY Bar"}
+        # flow_title is "{name} ({host})" — both placeholders must be provided or
+        # the frontend renders a formatjs MISSING_VALUE error on the discovery card.
+        self.context["title_placeholders"] = {
+            "name": self._discovered_name or "BUSY Bar",
+            "host": discovery_info.ip,
+        }
         return await self.async_step_discovery_confirm()
 
     async def async_step_discovery_confirm(
