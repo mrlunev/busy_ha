@@ -3,10 +3,8 @@
 DOMAIN = "busybar"
 MANUFACTURER = "BUSY Bar"
 
-CONF_HOST = "host"
 CONF_TOKEN = "token"
 
-DEFAULT_PORT = 80
 SCAN_INTERVAL = 5
 
 # Minimum device API contract we support (major of `system.api_semver`, e.g.
@@ -22,9 +20,6 @@ PRIORITY_INTERRUPT = 91
 # as keys; the device tolerates a mismatch between the selected section and what
 # is on screen, and a physical turn updates the software position.
 SELECTOR_POSITIONS = ["busy", "custom", "off", "apps", "settings"]
-
-# BUSY timer snapshot types from /api/busy/snapshot.
-SNAPSHOT_TYPES = ["NOT_STARTED", "INFINITE", "SIMPLE", "INTERVAL"]
 
 THEMES = [
     "meeting",

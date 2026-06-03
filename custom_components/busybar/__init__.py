@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 import voluptuous as vol
@@ -33,8 +32,6 @@ from .const import (
     THEMES,
 )
 from .coordinator import BusyBarConfigEntry, BusyBarCoordinator
-
-_LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [
     "binary_sensor",

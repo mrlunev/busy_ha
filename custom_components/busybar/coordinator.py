@@ -45,7 +45,6 @@ class BusyBarRuntime:
     update_in_progress: bool
     wifi_mac: str | None
     usb_mac: str | None
-    ble_mac: str | None
     boot_time: int | None
     battery_voltage: int | None
     battery_current: int | None
@@ -162,7 +161,6 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
             update_in_progress=in_progress,
             wifi_mac=device.get("wifi_mac"),
             usb_mac=device.get("usb_mac"),
-            ble_mac=device.get("ble_mac"),
             boot_time=system.get("boot_time") if isinstance(system.get("boot_time"), int) else None,
             battery_voltage=power.get("battery_voltage") if isinstance(power.get("battery_voltage"), int) else None,
             battery_current=power.get("battery_current") if isinstance(power.get("battery_current"), int) else None,

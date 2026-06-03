@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from collections.abc import Mapping
 from typing import Any
 
@@ -17,8 +16,6 @@ from homeassistant.helpers.service_info.dhcp import DhcpServiceInfo
 
 from .api import BusyBarApi, BusyBarApiError, BusyBarAuthError
 from .const import CONF_TOKEN, DOMAIN, MIN_API_MAJOR
-
-_LOGGER = logging.getLogger(__name__)
 
 
 class UnsupportedApiVersion(Exception):

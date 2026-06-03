@@ -2,14 +2,12 @@
 
 from __future__ import annotations
 
-import logging
 import time
 import uuid
 from typing import Any
 
 import aiohttp
 
-_LOGGER = logging.getLogger(__name__)
 
 class BusyBarApiError(Exception):
     """API request failed."""
@@ -121,9 +119,6 @@ class BusyBarApi:
 
     async def get_update_status(self) -> dict:
         return await self._request("GET", "/api/update/status")
-
-    async def check_update(self) -> dict:
-        return await self._request("POST", "/api/update/check")
 
     async def install_update(self, version: str) -> dict:
         return await self._request("POST", "/api/update/install", params={"version": version})
