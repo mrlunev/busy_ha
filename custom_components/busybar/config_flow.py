@@ -160,6 +160,49 @@ class BusyBarConfigFlow(ConfigFlow, domain=DOMAIN):
             errors=errors,
         )
 
+    async def async_step_reconfigure(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Change the host/token of an existing bar without removing it.
+
+        Identity stays anchored on the serial: the new host must resolve to the
+        same physical bar, otherwise we abort with ``wrong_device`` rather than
+        silently re-pointing the entry at a different device.
+        """
+        errors: dict[str, str] = {}
+        reconfigure_entry = self._get_reconfigure_entry()
+        if user_input is not None:
+            host = user_input[CONF_HOST].strip()
+            token = (user_input.get(CONF_TOKEN) or "").strip()
+            try:
+                serial, _ = await _validate(self.hass, host, token)
+            except UnsupportedApiVersion:
+                errors["base"] = "unsupported_version"
+            except BusyBarAuthError:
+                errors["base"] = "invalid_auth"
+            except (BusyBarApiError, aiohttp.ClientError):
+                errors["base"] = "cannot_connect"
+            else:
+                await self.async_set_unique_id(serial)
+                self._abort_if_unique_id_mismatch(reason="wrong_device")
+                return self.async_update_reload_and_abort(
+                    reconfigure_entry,
+                    data_updates={CONF_HOST: host, CONF_TOKEN: token},
+                )
+
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_HOST, default=reconfigure_entry.data[CONF_HOST]
+                    ): str,
+                    vol.Optional(CONF_TOKEN, default=""): str,
+                }
+            ),
+            errors=errors,
+        )
+
     async def async_step_reauth(
         self, entry_data: Mapping[str, Any]
     ) -> ConfigFlowResult:

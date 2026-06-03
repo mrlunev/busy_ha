@@ -32,6 +32,18 @@
         "data_description": {
           "token": "Only required if Password protection is enabled on the device (Settings \u2192 API). Leave empty otherwise."
         }
+      },
+      "reconfigure": {
+        "title": "Reconfigure BUSY Bar",
+        "description": "Update the host or API token for this BUSY Bar. The new host must point to the same physical device.",
+        "data": {
+          "host": "Host",
+          "token": "API token (optional)"
+        },
+        "data_description": {
+          "host": "IP address or hostname of the BUSY Bar on your network.",
+          "token": "Only required if Password protection is enabled on the device (Settings \u2192 API). Leave empty otherwise."
+        }
       }
     },
     "flow_title": "{name} ({host})",
@@ -43,6 +55,7 @@
     "abort": {
       "already_configured": "This device is already configured.",
       "reauth_successful": "Re-authentication was successful.",
+      "reconfigure_successful": "Reconfiguration was successful.",
       "wrong_device": "The token belongs to a different BUSY Bar."
     }
   },
@@ -97,6 +110,23 @@
     },
     "image": {
       "screen": { "name": "Screen" }
+    }
+  },
+  "exceptions": {
+    "no_loaded_entry": {
+      "message": "No BUSY Bar is set up yet."
+    },
+    "invalid_target": {
+      "message": "The selected target is not a BUSY Bar device."
+    },
+    "theme_requires_session": {
+      "message": "Start a BUSY session before changing the theme (use the Theme select or the Start BUSY action)."
+    },
+    "no_update_available": {
+      "message": "No firmware version is available to install."
+    },
+    "device_error": {
+      "message": "BUSY Bar communication error: {error}"
     }
   }
 }

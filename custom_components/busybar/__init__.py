@@ -156,7 +156,9 @@ def _register_services(hass: HomeAssistant) -> None:
             if entry.state is ConfigEntryState.LOADED and entry.runtime_data is not None
         }
         if not loaded:
-            raise ServiceValidationError("No loaded BUSY Bar config entry")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="no_loaded_entry"
+            )
 
         dev_reg = dr.async_get(hass)
         ent_reg = er.async_get(hass)
@@ -183,7 +185,9 @@ def _register_services(hass: HomeAssistant) -> None:
                 if ident[0] == DOMAIN and (coord := loaded.get(ident[1])) and coord not in out:
                     out.append(coord)
         if not out:
-            raise ServiceValidationError("Target is not a BUSY Bar device")
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="invalid_target"
+            )
         return out
 
     def _register(name: str, handler, schema: vol.Schema) -> None:
@@ -193,7 +197,11 @@ def _register_services(hass: HomeAssistant) -> None:
             try:
                 await handler(call)
             except BusyBarApiError as err:
-                raise HomeAssistantError(str(err)) from err
+                raise HomeAssistantError(
+                    translation_domain=DOMAIN,
+                    translation_key="device_error",
+                    translation_placeholders={"error": str(err)},
+                ) from err
 
         hass.services.async_register(DOMAIN, name, wrapped, schema=schema)
 
@@ -413,8 +421,8 @@ def _register_services(hass: HomeAssistant) -> None:
         for coord in _coordinators(call):
             if not coord.data.active:
                 raise ServiceValidationError(
-                    "Start a BUSY session before changing the theme "
-                    "(use the Theme select or busybar.start_busy)"
+                    translation_domain=DOMAIN,
+                    translation_key="theme_requires_session",
                 )
             await coord.api.set_theme(theme)
             await coord.async_request_refresh()

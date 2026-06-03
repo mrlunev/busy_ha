@@ -5,13 +5,12 @@ from __future__ import annotations
 from homeassistant.components.select import SelectEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import BusyBarApiError
 from .const import SELECTOR_POSITIONS, THEMES
 from .coordinator import BusyBarCoordinator
-from .entity import BusyBarEntity
+from .entity import BusyBarEntity, device_error
 
 
 PARALLEL_UPDATES = 1
@@ -50,7 +49,7 @@ class BusyBarSelectorSelect(BusyBarEntity, SelectEntity):
         try:
             await self.coordinator.api.send_key(option)
         except BusyBarApiError as err:
-            raise HomeAssistantError(str(err)) from err
+            raise device_error(err) from err
         self._attr_current_option = option
         self.async_write_ha_state()
 
@@ -77,5 +76,5 @@ class BusyBarThemeSelect(BusyBarEntity, SelectEntity):
             else:
                 await self.coordinator.api.start_infinite(option)
         except BusyBarApiError as err:
-            raise HomeAssistantError(str(err)) from err
+            raise device_error(err) from err
         await self.coordinator.async_request_refresh()

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.device_registry import (
     CONNECTION_NETWORK_MAC,
     DeviceInfo,
@@ -11,6 +12,15 @@ from homeassistant.helpers.update_coordinator import CoordinatorEntity
 
 from .const import DOMAIN, MANUFACTURER
 from .coordinator import BusyBarCoordinator
+
+
+def device_error(err: Exception) -> HomeAssistantError:
+    """Wrap a device/API failure as a translated HomeAssistantError."""
+    return HomeAssistantError(
+        translation_domain=DOMAIN,
+        translation_key="device_error",
+        translation_placeholders={"error": str(err)},
+    )
 
 
 class BusyBarEntity(CoordinatorEntity[BusyBarCoordinator]):

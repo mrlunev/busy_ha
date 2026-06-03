@@ -5,12 +5,11 @@ from __future__ import annotations
 from homeassistant.components.button import ButtonEntity
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
-from homeassistant.exceptions import HomeAssistantError
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import BusyBarApiError
 from .coordinator import BusyBarCoordinator
-from .entity import BusyBarEntity
+from .entity import BusyBarEntity, device_error
 
 
 PARALLEL_UPDATES = 1
@@ -43,7 +42,7 @@ class BusyBarKeyButton(BusyBarEntity, ButtonEntity):
         try:
             await self.coordinator.api.send_key(self._key)
         except BusyBarApiError as err:
-            raise HomeAssistantError(str(err)) from err
+            raise device_error(err) from err
         await self.coordinator.async_request_refresh()
 
 
@@ -54,7 +53,7 @@ class BusyBarStopButton(BusyBarEntity, ButtonEntity):
         try:
             await self.coordinator.api.stop_busy()
         except BusyBarApiError as err:
-            raise HomeAssistantError(str(err)) from err
+            raise device_error(err) from err
         await self.coordinator.async_request_refresh()
 
 
@@ -69,7 +68,7 @@ class BusyBarPauseButton(BusyBarEntity, ButtonEntity):
         try:
             await self.coordinator.api.pause_busy()
         except BusyBarApiError as err:
-            raise HomeAssistantError(str(err)) from err
+            raise device_error(err) from err
         await self.coordinator.async_request_refresh()
 
 
@@ -84,5 +83,5 @@ class BusyBarResumeButton(BusyBarEntity, ButtonEntity):
         try:
             await self.coordinator.api.resume_busy()
         except BusyBarApiError as err:
-            raise HomeAssistantError(str(err)) from err
+            raise device_error(err) from err
         await self.coordinator.async_request_refresh()

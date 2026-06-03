@@ -5,8 +5,11 @@ rules:
   test-before-setup: done
   unique-config-entry: done
   config-flow-test-coverage:
-    status: todo
-    comment: Test suite scaffolded under tests/; coverage to be completed before core PR.
+    status: done
+    comment: >-
+      config_flow at 96% (user/no-token/unsupported/errors/already-configured,
+      dhcp success/self-heal/cannot-connect/password-protected/confirm-errors,
+      reauth success/invalid-auth/wrong-device). See tests/test_config_flow.py.
   runtime-data: done
   entity-unique-id: done
   has-entity-name: done
@@ -32,8 +35,11 @@ rules:
     status: todo
     comment: services.yaml + README cover it; home-assistant.io docs PR pending.
   brands:
-    status: todo
-    comment: Logo/icon PR to home-assistant/brands pending.
+    status: done
+    comment: >-
+      Local brand/icon.png + icon@2x.png served via the brands proxy API
+      (HA 2026.3+); live-verified. home-assistant/brands core_integrations PR
+      still needed at core-submission time.
 
   # ------------------------------------------------------------------ Silver
   action-exceptions: done
@@ -44,8 +50,10 @@ rules:
   parallel-updates: done
   reauthentication-flow: done
   test-coverage:
-    status: todo
-    comment: Targeting >95%; tests scaffolded, completion pending.
+    status: done
+    comment: >-
+      98% line coverage (84 tests) measured locally with
+      pytest-homeassistant-custom-component on HA 2026.2.3 / Python 3.13.
   docs-configuration-parameters:
     status: todo
     comment: home-assistant.io docs PR pending.
@@ -59,19 +67,21 @@ rules:
   entity-disabled-by-default: done
   entity-translations: done
   devices: done
-  diagnostics:
-    status: todo
+  diagnostics: done
   discovery:
-    status: todo
-    comment: Device exposes mDNS; zeroconf discovery to be added.
+    status: done
+    comment: DHCP discovery by WiFi OUI (manifest dhcp 8C8B48*); live-verified.
   discovery-update-info:
-    status: todo
+    status: done
+    comment: DHCP hit self-heals the stored host on IP change (config_flow).
   reconfiguration-flow:
-    status: todo
+    status: done
+    comment: async_step_reconfigure changes host/token; serial mismatch aborts wrong_device.
   repair-issues:
     status: todo
   exception-translations:
-    status: todo
+    status: done
+    comment: User-facing HomeAssistantError/ServiceValidationError use translation_key; messages in strings.json exceptions block.
   icon-translations:
     status: todo
   docs-data-update:

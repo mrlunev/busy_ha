@@ -168,6 +168,171 @@ async def test_dhcp_discovery_cannot_connect(
     assert result["reason"] == "cannot_connect"
 
 
+async def test_user_flow_no_serial_cannot_connect(
+    hass: HomeAssistant, mock_api: AsyncMock
+) -> None:
+    """A device that reports no serial number is treated as cannot_connect."""
+    mock_api.get_status.return_value = {"system": {"api_semver": "23.0.0"}}
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_USER}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], USER_INPUT
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "cannot_connect"}
+
+
+async def test_dhcp_password_protected_then_token(
+    hass: HomeAssistant, mock_api: AsyncMock, mock_setup_entry: AsyncMock
+) -> None:
+    """A protected bar can't be read tokenless → confirm step collects the token."""
+    mock_api.get_status.side_effect = BusyBarAuthError("401")
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_DHCP}, data=DHCP_INFO
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "discovery_confirm"
+
+    mock_api.get_status.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_TOKEN: "secret"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"] == {CONF_HOST: "http://192.168.1.77", CONF_TOKEN: "secret"}
+
+
+@pytest.mark.parametrize(
+    ("error", "reason"),
+    [
+        (BusyBarAuthError("bad"), "invalid_auth"),
+        (BusyBarApiError("down"), "cannot_connect"),
+    ],
+)
+async def test_discovery_confirm_errors(
+    hass: HomeAssistant, mock_api: AsyncMock, error: Exception, reason: str
+) -> None:
+    """Validation failures in the confirm step surface as recoverable errors."""
+    mock_api.get_status.side_effect = BusyBarAuthError("401")
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": SOURCE_DHCP}, data=DHCP_INFO
+    )
+    mock_api.get_status.side_effect = error
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_TOKEN: "x"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": reason}
+
+
+async def test_reauth_invalid_auth_then_recover(
+    hass: HomeAssistant, mock_api: AsyncMock, mock_setup_entry: AsyncMock
+) -> None:
+    """A wrong token during re-auth shows invalid_auth, then recovers."""
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=SERIAL, data=USER_INPUT)
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reauth_flow(hass)
+    mock_api.get_status.side_effect = BusyBarAuthError("401")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_TOKEN: "wrong"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_auth"}
+
+    mock_api.get_status.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_TOKEN: "right"}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reauth_successful"
+
+
+async def test_reauth_wrong_device(
+    hass: HomeAssistant, mock_api: AsyncMock, mock_setup_entry: AsyncMock
+) -> None:
+    """Re-auth against a different physical bar (serial mismatch) is rejected."""
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=SERIAL, data=USER_INPUT)
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reauth_flow(hass)
+    mock_api.get_status.return_value = {
+        "device": {"serial_number": "203638485431500400999999"},
+        "system": {"api_semver": "23.0.0"},
+    }
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_TOKEN: "tok"}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "wrong_device"
+
+
+async def test_reconfigure_success(
+    hass: HomeAssistant, mock_api: AsyncMock, mock_setup_entry: AsyncMock
+) -> None:
+    """Reconfigure updates host/token on the same bar (serial unchanged)."""
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=SERIAL, data=USER_INPUT)
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "reconfigure"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_HOST: "192.168.1.123", CONF_TOKEN: "new-token"},
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+    assert entry.data[CONF_HOST] == "192.168.1.123"
+    assert entry.data[CONF_TOKEN] == "new-token"
+
+
+async def test_reconfigure_wrong_device(
+    hass: HomeAssistant, mock_api: AsyncMock, mock_setup_entry: AsyncMock
+) -> None:
+    """Reconfigure pointing at a different physical bar is rejected."""
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=SERIAL, data=USER_INPUT)
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+    mock_api.get_status.return_value = {
+        "device": {"serial_number": "203638485431500400999999"},
+        "system": {"api_semver": "23.0.0"},
+    }
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_HOST: "192.168.1.200", CONF_TOKEN: ""},
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "wrong_device"
+
+
+async def test_reconfigure_invalid_auth_then_recover(
+    hass: HomeAssistant, mock_api: AsyncMock, mock_setup_entry: AsyncMock
+) -> None:
+    """A bad token during reconfigure shows invalid_auth, then recovers."""
+    entry = MockConfigEntry(domain=DOMAIN, unique_id=SERIAL, data=USER_INPUT)
+    entry.add_to_hass(hass)
+
+    result = await entry.start_reconfigure_flow(hass)
+    mock_api.get_status.side_effect = BusyBarAuthError("401")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_HOST: "192.168.1.50", CONF_TOKEN: "wrong"},
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "invalid_auth"}
+
+    mock_api.get_status.side_effect = None
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {CONF_HOST: "192.168.1.50", CONF_TOKEN: "right"},
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+
+
 async def test_reauth_success(
     hass: HomeAssistant, mock_api: AsyncMock, mock_setup_entry: AsyncMock
 ) -> None:

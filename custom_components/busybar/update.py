@@ -12,7 +12,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 
 from .api import BusyBarApiError
 from .coordinator import BusyBarCoordinator
-from .entity import BusyBarEntity
+from .const import DOMAIN
+from .entity import BusyBarEntity, device_error
 
 
 PARALLEL_UPDATES = 1
@@ -48,9 +49,11 @@ class BusyBarFirmwareUpdate(BusyBarEntity, UpdateEntity):
     async def async_install(self, version: str | None, backup: bool, **kwargs: Any) -> None:
         target = version or self.coordinator.data.update_latest
         if not target:
-            raise HomeAssistantError("No firmware version available to install")
+            raise HomeAssistantError(
+                translation_domain=DOMAIN, translation_key="no_update_available"
+            )
         try:
             await self.coordinator.api.install_update(target)
         except BusyBarApiError as err:
-            raise HomeAssistantError(str(err)) from err
+            raise device_error(err) from err
         await self.coordinator.async_request_refresh()
