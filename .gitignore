@@ -19,3 +19,9 @@ venv/
 # OS / editor
 .DS_Store
 Thumbs.db
+
+# Dev-only — not needed for HACS installation
+tests/
+docs/
+pyproject.toml
+requirements_test.txt
