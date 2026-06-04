@@ -77,4 +77,4 @@ class BusyBarThemeSelect(BusyBarEntity, SelectEntity):
                 await self.coordinator.api.start_infinite(option)
         except BusyBarApiError as err:
             raise device_error(err) from err
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_request_refresh_full()

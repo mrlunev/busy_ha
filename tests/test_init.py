@@ -34,6 +34,7 @@ def _mock_api() -> AsyncMock:
     api.get_smart_home_switch.return_value = {"state": False}
     api.get_pairing.return_value = {"fabric_count": 0}
     api.get_update_status.return_value = {}
+    api.get_ble_status.return_value = {"status": "connected"}
     return api
 
 

@@ -55,6 +55,7 @@ def make_api(**overrides: Any) -> AsyncMock:
     api.get_smart_home_switch.return_value = {"state": False}
     api.get_pairing.return_value = {"fabric_count": 1}
     api.get_update_status.return_value = {}
+    api.get_ble_status.return_value = {"status": "connected"}
     for key, value in overrides.items():
         getattr(api, key).return_value = value
     return api

@@ -55,7 +55,7 @@ class BusyBarBrightnessNumber(BusyBarEntity, NumberEntity):
             await self.coordinator.api.set_brightness(int(value))
         except BusyBarApiError as err:
             raise device_error(err) from err
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_request_refresh_full()
 
 
 class BusyBarVolumeNumber(BusyBarEntity, NumberEntity):
@@ -74,4 +74,4 @@ class BusyBarVolumeNumber(BusyBarEntity, NumberEntity):
             await self.coordinator.api.set_volume(int(value))
         except BusyBarApiError as err:
             raise device_error(err) from err
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_request_refresh_full()

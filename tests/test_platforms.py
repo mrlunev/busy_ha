@@ -139,8 +139,8 @@ async def test_buttons_press(hass: HomeAssistant) -> None:
     for key, attr in (
         ("ok", "send_key"),
         ("back", "send_key"),
-        ("stop_busy", "stop_busy"),
-        ("pause_busy", "pause_busy"),
+        ("stop_timer", "stop_busy"),
+        ("pause_timer", "pause_busy"),
     ):
         await hass.services.async_call(
             "button", "press", {ATTR_ENTITY_ID: _eid(hass, "button", key)}, blocking=True
@@ -251,7 +251,7 @@ async def test_resume_button_when_paused(hass: HomeAssistant) -> None:
     await entry.runtime_data.async_refresh()
     await hass.async_block_till_done()
     await hass.services.async_call(
-        "button", "press", {ATTR_ENTITY_ID: _eid(hass, "button", "resume_busy")}, blocking=True
+        "button", "press", {ATTR_ENTITY_ID: _eid(hass, "button", "resume_timer")}, blocking=True
     )
     api.resume_busy.assert_awaited()
 
@@ -262,7 +262,7 @@ async def test_stop_button_api_error(hass: HomeAssistant) -> None:
     await setup_busybar(hass, api)
     with pytest.raises(HomeAssistantError):
         await hass.services.async_call(
-            "button", "press", {ATTR_ENTITY_ID: _eid(hass, "button", "stop_busy")}, blocking=True
+            "button", "press", {ATTR_ENTITY_ID: _eid(hass, "button", "stop_timer")}, blocking=True
         )
 
 

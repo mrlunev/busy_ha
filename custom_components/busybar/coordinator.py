@@ -4,16 +4,17 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
+from homeassistant.util import dt as dt_util
 
 from .api import BusyBarApi, BusyBarApiError, BusyBarAuthError
-from .const import DOMAIN, SCAN_INTERVAL
+from .const import DOMAIN, MEDIUM_POLL_FACTOR, SCAN_INTERVAL, SLOW_POLL_FACTOR
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -33,6 +34,7 @@ class BusyBarRuntime:
     paused: bool
     phase: str
     time_remaining_sec: int | None
+    finishes_at: datetime | None
     current_interval: int | None
     battery: int | None
     charging: bool
@@ -41,6 +43,7 @@ class BusyBarRuntime:
     volume: float | None
     smart_home: bool | None
     smart_home_available: bool
+    bluetooth: str | None
     update_latest: str | None
     update_in_progress: bool
     wifi_mac: str | None
@@ -64,31 +67,70 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
         )
         self.api = api
         self._synced_name: str | None = None
+        # Tiered polling bookkeeping. Fast endpoints are fetched every cycle;
+        # medium/slow ones every Nth cycle, reusing the last payload in between.
+        self._cycle = 0
+        self._force_full = False
+        self._cache: dict[str, dict] = {}
+
+    async def async_request_refresh_full(self) -> None:
+        """Request a refresh that includes the medium and slow tiers.
+
+        Used after a user-initiated write (set brightness, toggle switch, …) so
+        the affected entity reflects the new value immediately instead of waiting
+        for its slow tier to come round.
+        """
+        self._force_full = True
+        await self.async_request_refresh()
 
     async def _async_update_data(self) -> BusyBarRuntime:
+        cycle = self._cycle
+        force = self._force_full
+        self._force_full = False
+        self._cycle = cycle + 1
+        do_medium = force or cycle % MEDIUM_POLL_FACTOR == 0
+        do_slow = force or cycle % SLOW_POLL_FACTOR == 0
+
         try:
-            name = await self.api.get_name()
+            # Fast tier (every cycle): live session state, power/battery (and the
+            # serial guard), plus the cheap device name so renames stay responsive.
             status = await self.api.get_status()
             snapshot_data = await self.api.get_snapshot()
-            brightness = await self.api.get_brightness()
-            volume = await self.api.get_volume()
-            wifi = await self.api.get_wifi_status()
-            try:
-                sh = await self.api.get_smart_home_switch()
-            except BusyBarApiError:
-                sh = {}
-            try:
-                pairing = await self.api.get_pairing()
-            except BusyBarApiError:
-                pairing = {}
-            try:
-                update = await self.api.get_update_status()
-            except BusyBarApiError:
-                update = {}
+            name = await self.api.get_name()
+
+            if do_medium:
+                self._cache["brightness"] = await self.api.get_brightness()
+                self._cache["volume"] = await self.api.get_volume()
+                self._cache["wifi"] = await self.api.get_wifi_status()
+                try:
+                    self._cache["sh"] = await self.api.get_smart_home_switch()
+                except BusyBarApiError:
+                    self._cache["sh"] = {}
+            if do_slow:
+                try:
+                    self._cache["pairing"] = await self.api.get_pairing()
+                except BusyBarApiError:
+                    self._cache["pairing"] = {}
+                try:
+                    self._cache["update"] = await self.api.get_update_status()
+                except BusyBarApiError:
+                    self._cache["update"] = {}
+                try:
+                    self._cache["ble"] = await self.api.get_ble_status()
+                except BusyBarApiError:
+                    self._cache["ble"] = {}
         except BusyBarAuthError as err:
             raise ConfigEntryAuthFailed(str(err)) from err
         except BusyBarApiError as err:
             raise UpdateFailed(str(err)) from err
+
+        brightness = self._cache.get("brightness") or {}
+        volume = self._cache.get("volume") or {}
+        wifi = self._cache.get("wifi") or {}
+        sh = self._cache.get("sh") or {}
+        pairing = self._cache.get("pairing") or {}
+        update = self._cache.get("update") or {}
+        ble = self._cache.get("ble") or {}
 
         snap = snapshot_data.get("snapshot") or {}
         stype = snap.get("type", "NOT_STARTED")
@@ -108,6 +150,13 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
             interval_no = snap.get("current_interval")
 
         phase = _phase_from_snapshot(stype, paused, interval_no)
+
+        # Expose the countdown as an absolute finish time: the frontend renders a
+        # live "in N min" that ticks down between polls, so we don't need a fast
+        # poll just to move a number. Frozen (None) while paused / not running.
+        finishes_at: datetime | None = None
+        if active and not paused and time_left is not None:
+            finishes_at = dt_util.utcnow() + timedelta(seconds=time_left)
 
         device = (status.get("device") or {}) if status else {}
         # Guard against a DHCP IP reshuffle silently pointing our host at a
@@ -149,6 +198,7 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
             paused=paused,
             phase=phase,
             time_remaining_sec=time_left,
+            finishes_at=finishes_at,
             current_interval=interval_no,
             battery=power.get("battery_charge"),
             charging=charging,
@@ -157,6 +207,7 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
             volume=float(volume.get("volume")) if volume.get("volume") is not None else None,
             smart_home=sh.get("state") if "state" in sh else None,
             smart_home_available=fabric_count > 0,
+            bluetooth=ble.get("status") if ble.get("status") else None,
             update_latest=latest,
             update_in_progress=in_progress,
             wifi_mac=device.get("wifi_mac"),

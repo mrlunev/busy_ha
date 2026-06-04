@@ -71,10 +71,22 @@
         }
       },
       "phase": { "name": "Phase" },
-      "time_remaining": { "name": "Time remaining" },
+      "time_remaining": { "name": "Session ends" },
       "current_interval": { "name": "Current interval" },
       "battery": { "name": "Battery" },
       "wifi_signal": { "name": "Wi-Fi signal" },
+      "bluetooth": {
+        "name": "Bluetooth",
+        "state": {
+          "reset": "Reset",
+          "initialization": "Initializing",
+          "disabled": "Disabled",
+          "enabled": "Enabled",
+          "connectable": "Connectable",
+          "connected": "Connected",
+          "internal error": "Internal error"
+        }
+      },
       "firmware": { "name": "Firmware" },
       "last_boot": { "name": "Last boot" },
       "battery_voltage": { "name": "Battery voltage" },
@@ -101,9 +113,9 @@
     "button": {
       "ok": { "name": "Press OK" },
       "back": { "name": "Press Back" },
-      "stop_busy": { "name": "Stop session" },
-      "pause_busy": { "name": "Pause session" },
-      "resume_busy": { "name": "Resume session" }
+      "stop_timer": { "name": "Stop session" },
+      "pause_timer": { "name": "Pause session" },
+      "resume_timer": { "name": "Resume session" }
     },
     "update": {
       "firmware_update": { "name": "Firmware" }
@@ -120,7 +132,10 @@
       "message": "The selected target is not a BUSY Bar device."
     },
     "theme_requires_session": {
-      "message": "Start a BUSY session before changing the theme (use the Theme select or the Start BUSY action)."
+      "message": "Start a session before changing the theme (use the Theme select or the Start timer action)."
+    },
+    "duration_required": {
+      "message": "A countdown timer needs a duration. Set the duration field or pick another mode."
     },
     "no_update_available": {
       "message": "No firmware version is available to install."

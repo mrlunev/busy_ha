@@ -117,6 +117,9 @@ class BusyBarApi:
     async def get_pairing(self) -> dict:
         return await self._request("GET", "/api/smart_home/pairing")
 
+    async def get_ble_status(self) -> dict:
+        return await self._request("GET", "/api/ble/status")
+
     async def get_update_status(self) -> dict:
         return await self._request("GET", "/api/update/status")
 
@@ -211,6 +214,45 @@ class BusyBarApi:
             "snapshot_timestamp_ms": _now_ms(),
         }
         return await self.put_snapshot(snap)
+
+    async def get_profile(self, slot: str) -> dict:
+        """Return a configured timer preset (slot = "busy" | "custom")."""
+        return await self._request("GET", f"/api/busy/profiles/{slot}")
+
+    async def start_profile(self, slot: str) -> dict:
+        """Start the timer preset stored in the given slot, as configured on the bar.
+
+        The two galette positions ("busy" / "custom") are two presets of the same
+        timer app; each can be configured as an open-ended, countdown or Pomodoro
+        timer with its own theme. We read the preset and launch a matching snapshot.
+        """
+        profile = await self.get_profile(slot)
+        timer = profile.get("timer_settings") or {}
+        settings = profile.get("busy_bar_settings") or _busy_settings("busy", True)
+        ttype = timer.get("type", "INFINITE")
+        snap: dict[str, Any] = {
+            "type": ttype,
+            "card_id": str(uuid.uuid4()),
+            "is_paused": False,
+            "busy_bar_settings": settings,
+        }
+        if ttype == "SIMPLE":
+            snap["time_left_ms"] = int(timer.get("total_time_ms", 0))
+        elif ttype == "INTERVAL":
+            work_ms = int(timer.get("interval_work_ms", 0))
+            snap["current_interval"] = 1
+            snap["current_interval_time_total_ms"] = work_ms
+            snap["current_interval_time_left_ms"] = work_ms
+            snap["interval_settings"] = {
+                "type": "INTERVAL",
+                "interval_work_ms": work_ms,
+                "interval_rest_ms": int(timer.get("interval_rest_ms", 0)),
+                "interval_work_cycles_count": int(timer.get("interval_work_cycles_count", 1)),
+                "is_autostart_enabled": bool(timer.get("is_autostart_enabled", True)),
+            }
+        return await self.put_snapshot(
+            {"snapshot": snap, "snapshot_timestamp_ms": _now_ms()}
+        )
 
     async def set_theme(self, theme: str) -> dict:
         data = await self.get_snapshot()

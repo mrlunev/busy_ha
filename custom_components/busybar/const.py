@@ -5,7 +5,18 @@ MANUFACTURER = "BUSY Bar"
 
 CONF_TOKEN = "token"
 
-SCAN_INTERVAL = 5
+# Base (fast) poll interval. The Pomodoro/timer countdown is exposed as a
+# timestamp sensor that the frontend ticks down locally, so the coordinator no
+# longer has to poll every few seconds just to move a number. Rarely-changing
+# endpoints are fetched on slower multiples of this interval (see below) to keep
+# the sustained request rate low (appropriate-polling).
+SCAN_INTERVAL = 30
+# Fetch the "medium" tier (display brightness, audio volume, Wi-Fi signal,
+# smart-home switch) every Nth fast cycle, and the "slow" tier (Matter pairing,
+# firmware update check) every Mth cycle. A user-initiated write forces a full
+# refresh of all tiers regardless (see BusyBarCoordinator.async_request_refresh_full).
+MEDIUM_POLL_FACTOR = 2  # ~60 s
+SLOW_POLL_FACTOR = 10  # ~5 min
 
 # Minimum device API contract we support (major of `system.api_semver`, e.g.
 # "23.0.0"). Older firmware exposes a different/incompatible API surface, so we

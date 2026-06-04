@@ -128,30 +128,53 @@ async def test_display_countdown(hass: HomeAssistant) -> None:
     assert el["type"] == "countdown" and el["timestamp"].isdigit()
 
 
-async def test_start_busy_simple_and_infinite(hass: HomeAssistant) -> None:
-    api = make_api()
-    await setup_busybar(hass, api)
-    await hass.services.async_call(
-        DOMAIN, "start_busy", {"theme": "meeting", "duration": 30}, blocking=True
-    )
-    api.start_simple.assert_awaited_with("meeting", 30)
-
-    await hass.services.async_call(
-        DOMAIN, "start_busy", {"theme": "meeting"}, blocking=True
-    )
-    api.start_infinite.assert_awaited_with("meeting")
-
-
-async def test_start_pomodoro(hass: HomeAssistant) -> None:
+async def test_start_timer_countdown_and_infinite(hass: HomeAssistant) -> None:
     api = make_api()
     await setup_busybar(hass, api)
     await hass.services.async_call(
         DOMAIN,
-        "start_pomodoro",
-        {"work_minutes": 50, "break_minutes": 10, "cycles": 2, "theme": "flow"},
+        "start_timer",
+        {"mode": "countdown", "theme": "meeting", "duration": 30},
+        blocking=True,
+    )
+    api.start_simple.assert_awaited_with("meeting", 30)
+
+    await hass.services.async_call(
+        DOMAIN, "start_timer", {"theme": "meeting"}, blocking=True
+    )
+    api.start_infinite.assert_awaited_with("meeting")
+
+
+async def test_start_timer_countdown_requires_duration(hass: HomeAssistant) -> None:
+    """countdown mode without a duration raises a validation error."""
+    api = make_api()
+    await setup_busybar(hass, api)
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN, "start_timer", {"mode": "countdown"}, blocking=True
+        )
+
+
+async def test_start_timer_pomodoro(hass: HomeAssistant) -> None:
+    api = make_api()
+    await setup_busybar(hass, api)
+    await hass.services.async_call(
+        DOMAIN,
+        "start_timer",
+        {"mode": "pomodoro", "work_minutes": 50, "break_minutes": 10, "cycles": 2, "theme": "flow"},
         blocking=True,
     )
     api.start_pomodoro.assert_awaited_with("flow", 50, 10, 2)
+
+
+async def test_start_profile(hass: HomeAssistant) -> None:
+    """start_profile launches the requested preset slot."""
+    api = make_api()
+    await setup_busybar(hass, api)
+    await hass.services.async_call(
+        DOMAIN, "start_profile", {"slot": "custom"}, blocking=True
+    )
+    api.start_profile.assert_awaited_with("custom")
 
 
 async def test_set_theme_requires_active_session(hass: HomeAssistant) -> None:
@@ -189,9 +212,9 @@ async def test_play_sound_and_clear(hass: HomeAssistant) -> None:
 async def test_timer_control_services(hass: HomeAssistant) -> None:
     api = make_api()
     await setup_busybar(hass, api)
-    await hass.services.async_call(DOMAIN, "stop_busy", {}, blocking=True)
-    await hass.services.async_call(DOMAIN, "pause_busy", {}, blocking=True)
-    await hass.services.async_call(DOMAIN, "resume_busy", {}, blocking=True)
+    await hass.services.async_call(DOMAIN, "stop_timer", {}, blocking=True)
+    await hass.services.async_call(DOMAIN, "pause_timer", {}, blocking=True)
+    await hass.services.async_call(DOMAIN, "resume_timer", {}, blocking=True)
     api.stop_busy.assert_awaited()
     api.pause_busy.assert_awaited()
     api.resume_busy.assert_awaited()

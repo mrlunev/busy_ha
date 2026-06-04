@@ -81,9 +81,10 @@ The integration creates a device with the following entities.
 ## Actions
 
 The integration provides actions such as `busybar.notify`,
-`busybar.display_text`, `busybar.display_countdown`, `busybar.start_busy`,
-`busybar.start_pomodoro`, `busybar.stop_busy` and `busybar.set_theme`. With a
-single bar configured the `target` may be omitted.
+`busybar.display_text`, `busybar.display_countdown`, `busybar.start_timer`
+(mode: open-ended / countdown / pomodoro), `busybar.start_profile`
+(launch the `busy` or `custom` preset), `busybar.stop_timer` and
+`busybar.set_theme`. With a single bar configured the `target` may be omitted.
 
 Display text is limited to printable ASCII; other characters are replaced.
 

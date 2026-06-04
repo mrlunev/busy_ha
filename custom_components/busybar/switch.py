@@ -52,4 +52,4 @@ class BusyBarSmartHomeSwitch(BusyBarEntity, SwitchEntity):
             await self.coordinator.api.set_smart_home_switch(state)
         except BusyBarApiError as err:
             raise device_error(err) from err
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_request_refresh_full()

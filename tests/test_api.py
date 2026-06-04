@@ -132,6 +132,7 @@ async def test_get_endpoints_use_expected_paths() -> None:
         api.get_pairing: "/api/smart_home/pairing",
         api.get_update_status: "/api/update/status",
         api.get_smart_home_switch: "/api/smart_home/switch",
+        api.get_ble_status: "/api/ble/status",
     }
     for fn, path in expected.items():
         await fn()
@@ -204,6 +205,33 @@ async def test_start_helpers_build_snapshots() -> None:
 
     await api.stop_busy()
     assert session.last[2]["json"]["snapshot"]["type"] == "NOT_STARTED"
+
+
+async def test_start_profile_builds_snapshot_from_preset() -> None:
+    """start_profile reads the slot preset and PUTs a matching snapshot."""
+    profile = json.dumps(
+        {
+            "title": "study",
+            "timer_settings": {
+                "type": "INTERVAL",
+                "interval_work_ms": 1500000,
+                "interval_rest_ms": 300000,
+                "interval_work_cycles_count": 4,
+                "is_autostart_enabled": True,
+            },
+            "busy_bar_settings": {"theme": "flow"},
+        }
+    )
+    api, session = _api(body=profile)
+    await api.start_profile("custom")
+    # First call reads the preset slot, last call writes the running snapshot.
+    assert session.calls[0][:2] == ("GET", "http://1.2.3.4/api/busy/profiles/custom")
+    assert session.last[:2] == ("PUT", "http://1.2.3.4/api/busy/snapshot")
+    snap = session.last[2]["json"]["snapshot"]
+    assert snap["type"] == "INTERVAL"
+    assert snap["current_interval_time_total_ms"] == 1500000
+    assert snap["interval_settings"]["interval_rest_ms"] == 300000
+    assert snap["busy_bar_settings"]["theme"] == "flow"
 
 
 async def test_set_theme_requires_session() -> None:

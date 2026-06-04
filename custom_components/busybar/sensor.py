@@ -40,6 +40,7 @@ async def async_setup_entry(
             BusyBarCurrentIntervalSensor(coordinator),
             BusyBarBatterySensor(coordinator),
             BusyBarWifiSensor(coordinator),
+            BusyBarBluetoothSensor(coordinator),
             BusyBarFirmwareSensor(coordinator),
             BusyBarLastBootSensor(coordinator),
             BusyBarBatteryVoltageSensor(coordinator),
@@ -68,14 +69,16 @@ class BusyBarPhaseSensor(BusyBarEntity, SensorEntity):
 
 
 class BusyBarTimeRemainingSensor(BusyBarEntity, SensorEntity):
+    # Absolute finish time rather than a ticking duration: the frontend shows a
+    # live relative "in N min" that counts down on its own, so the integration
+    # doesn't have to poll fast just to move a number. Unknown while not running
+    # or paused.
     _attr_translation_key = "time_remaining"
-    _attr_native_unit_of_measurement = "s"
-    _attr_device_class = "duration"
-    _attr_state_class = "measurement"
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
 
     @property
-    def native_value(self) -> int | None:
-        return self.coordinator.data.time_remaining_sec
+    def native_value(self) -> datetime | None:
+        return self.coordinator.data.finishes_at
 
 
 class BusyBarCurrentIntervalSensor(BusyBarEntity, SensorEntity):
@@ -108,6 +111,27 @@ class BusyBarWifiSensor(BusyBarEntity, SensorEntity):
     @property
     def native_value(self) -> int | None:
         return self.coordinator.data.rssi
+
+
+class BusyBarBluetoothSensor(BusyBarEntity, SensorEntity):
+    """Bluetooth (BLE) radio status, from /api/ble/status. Diagnostic."""
+
+    _attr_translation_key = "bluetooth"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = [
+        "reset",
+        "initialization",
+        "disabled",
+        "enabled",
+        "connectable",
+        "connected",
+        "internal error",
+    ]
+    _attr_entity_category = EntityCategory.DIAGNOSTIC
+
+    @property
+    def native_value(self) -> str | None:
+        return self.coordinator.data.bluetooth
 
 
 class BusyBarFirmwareSensor(BusyBarEntity, SensorEntity):

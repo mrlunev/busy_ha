@@ -49,14 +49,21 @@ SERVICE_DISPLAY_TEXT = "display_text"
 SERVICE_DISPLAY_IMAGE = "display_image"
 SERVICE_DISPLAY_ANIMATION = "display_animation"
 SERVICE_DISPLAY_COUNTDOWN = "display_countdown"
-SERVICE_START_BUSY = "start_busy"
-SERVICE_START_POMODORO = "start_pomodoro"
-SERVICE_STOP_BUSY = "stop_busy"
-SERVICE_PAUSE_BUSY = "pause_busy"
-SERVICE_RESUME_BUSY = "resume_busy"
+# A running timer always has one of three types (open-ended / countdown /
+# pomodoro); "busy" and "custom" are just two preset slots of the same app, not
+# different functions. So the actions are named by timer behaviour, plus one
+# action to launch a preconfigured slot as-is.
+SERVICE_START_TIMER = "start_timer"
+SERVICE_START_PROFILE = "start_profile"
+SERVICE_STOP_TIMER = "stop_timer"
+SERVICE_PAUSE_TIMER = "pause_timer"
+SERVICE_RESUME_TIMER = "resume_timer"
 SERVICE_SET_THEME = "set_theme"
 SERVICE_PLAY_SOUND = "play_sound"
 SERVICE_CLEAR = "clear"
+
+TIMER_MODES = ["infinite", "countdown", "pomodoro"]
+PROFILE_SLOTS = ["busy", "custom"]
 
 
 def _rgb_to_hexaa(rgb: list[int]) -> str:
@@ -297,7 +304,7 @@ def _register_services(hass: HomeAssistant) -> None:
                         "stock_path": STOCK_SOUNDS[sound],
                     }
                 )
-            await coord.async_request_refresh()
+            await coord.async_request_refresh_full()
 
     async def _display_text(call: ServiceCall) -> None:
         text = call.data["text"]
@@ -329,7 +336,7 @@ def _register_services(hass: HomeAssistant) -> None:
                     "elements": elements,
                 }
             )
-            await coord.async_request_refresh()
+            await coord.async_request_refresh_full()
 
     async def _display_image(call: ServiceCall) -> None:
         ref = _asset_ref(call.data["image"])
@@ -345,7 +352,7 @@ def _register_services(hass: HomeAssistant) -> None:
             await coord.api.draw(
                 {"application_name": APPLICATION_NAME, "priority": priority, "elements": elements}
             )
-            await coord.async_request_refresh()
+            await coord.async_request_refresh_full()
 
     async def _display_animation(call: ServiceCall) -> None:
         ref = _asset_ref(call.data["animation"])
@@ -362,7 +369,7 @@ def _register_services(hass: HomeAssistant) -> None:
             await coord.api.draw(
                 {"application_name": APPLICATION_NAME, "priority": priority, "elements": elements}
             )
-            await coord.async_request_refresh()
+            await coord.async_request_refresh_full()
 
     async def _display_countdown(call: ServiceCall) -> None:
         until = call.data["until"]
@@ -388,33 +395,42 @@ def _register_services(hass: HomeAssistant) -> None:
             await coord.api.draw(
                 {"application_name": APPLICATION_NAME, "priority": priority, "elements": elements}
             )
-            await coord.async_request_refresh()
+            await coord.async_request_refresh_full()
 
-    async def _start_busy(call: ServiceCall) -> None:
+    async def _start_timer(call: ServiceCall) -> None:
+        mode = call.data.get("mode", "infinite")
         theme = call.data.get("theme", "meeting")
-        duration = call.data.get("duration")
         for coord in _coordinators(call):
-            if duration:
+            if mode == "pomodoro":
+                await coord.api.start_pomodoro(
+                    theme,
+                    int(call.data.get("work_minutes", 25)),
+                    int(call.data.get("break_minutes", 5)),
+                    int(call.data.get("cycles", 4)),
+                )
+            elif mode == "countdown":
+                duration = call.data.get("duration")
+                if not duration:
+                    raise ServiceValidationError(
+                        translation_domain=DOMAIN,
+                        translation_key="duration_required",
+                    )
                 await coord.api.start_simple(theme, int(duration))
             else:
                 await coord.api.start_infinite(theme)
-            await coord.async_request_refresh()
+            await coord.async_request_refresh_full()
 
-    async def _start_pomodoro(call: ServiceCall) -> None:
+    async def _start_profile(call: ServiceCall) -> None:
+        slot = call.data["slot"]
         for coord in _coordinators(call):
-            await coord.api.start_pomodoro(
-                call.data.get("theme", "flow"),
-                int(call.data.get("work_minutes", 25)),
-                int(call.data.get("break_minutes", 5)),
-                int(call.data.get("cycles", 4)),
-            )
-            await coord.async_request_refresh()
+            await coord.api.start_profile(slot)
+            await coord.async_request_refresh_full()
 
     async def _simple_api(call: ServiceCall, method: str) -> None:
         for coord in _coordinators(call):
             fn = getattr(coord.api, method)
             await fn()
-            await coord.async_request_refresh()
+            await coord.async_request_refresh_full()
 
     async def _set_theme(call: ServiceCall) -> None:
         theme = call.data["theme"]
@@ -425,7 +441,7 @@ def _register_services(hass: HomeAssistant) -> None:
                     translation_key="theme_requires_session",
                 )
             await coord.api.set_theme(theme)
-            await coord.async_request_refresh()
+            await coord.async_request_refresh_full()
 
     async def _play_sound(call: ServiceCall) -> None:
         sound = call.data["sound"]
@@ -507,13 +523,15 @@ def _register_services(hass: HomeAssistant) -> None:
         ),
     )
     for name, schema, handler in (
-        (SERVICE_START_BUSY, {vol.Optional("theme", default="meeting"): vol.In(THEMES), vol.Optional("duration"): vol.All(vol.Coerce(int), vol.Range(1, 1440))}, _start_busy),
-        (SERVICE_START_POMODORO, {
+        (SERVICE_START_TIMER, {
+            vol.Optional("mode", default="infinite"): vol.In(TIMER_MODES),
+            vol.Optional("theme", default="meeting"): vol.In(THEMES),
+            vol.Optional("duration"): vol.All(vol.Coerce(int), vol.Range(1, 1440)),
             vol.Optional("work_minutes", default=25): vol.All(vol.Coerce(int), vol.Range(1, 180)),
             vol.Optional("break_minutes", default=5): vol.All(vol.Coerce(int), vol.Range(1, 60)),
             vol.Optional("cycles", default=4): vol.All(vol.Coerce(int), vol.Range(1, 20)),
-            vol.Optional("theme", default="flow"): vol.In(THEMES),
-        }, _start_pomodoro),
+        }, _start_timer),
+        (SERVICE_START_PROFILE, {vol.Required("slot"): vol.In(PROFILE_SLOTS)}, _start_profile),
         (SERVICE_SET_THEME, {vol.Required("theme"): vol.In(THEMES)}, _set_theme),
         (SERVICE_PLAY_SOUND, {vol.Required("sound"): vol.In(list(STOCK_SOUNDS.keys()))}, _play_sound),
     ):
@@ -529,6 +547,6 @@ def _register_services(hass: HomeAssistant) -> None:
         await _simple_api(call, "resume_busy")
 
     _register(SERVICE_CLEAR, _clear, _schema({}))
-    _register(SERVICE_STOP_BUSY, _stop, _schema({}))
-    _register(SERVICE_PAUSE_BUSY, _pause, _schema({}))
-    _register(SERVICE_RESUME_BUSY, _resume, _schema({}))
+    _register(SERVICE_STOP_TIMER, _stop, _schema({}))
+    _register(SERVICE_PAUSE_TIMER, _pause, _schema({}))
+    _register(SERVICE_RESUME_TIMER, _resume, _schema({}))

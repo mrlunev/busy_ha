@@ -56,4 +56,4 @@ class BusyBarFirmwareUpdate(BusyBarEntity, UpdateEntity):
             await self.coordinator.api.install_update(target)
         except BusyBarApiError as err:
             raise device_error(err) from err
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_request_refresh_full()

@@ -43,22 +43,22 @@ class BusyBarKeyButton(BusyBarEntity, ButtonEntity):
             await self.coordinator.api.send_key(self._key)
         except BusyBarApiError as err:
             raise device_error(err) from err
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_request_refresh_full()
 
 
 class BusyBarStopButton(BusyBarEntity, ButtonEntity):
-    _attr_translation_key = "stop_busy"
+    _attr_translation_key = "stop_timer"
 
     async def async_press(self) -> None:
         try:
             await self.coordinator.api.stop_busy()
         except BusyBarApiError as err:
             raise device_error(err) from err
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_request_refresh_full()
 
 
 class BusyBarPauseButton(BusyBarEntity, ButtonEntity):
-    _attr_translation_key = "pause_busy"
+    _attr_translation_key = "pause_timer"
 
     @property
     def available(self) -> bool:
@@ -69,11 +69,11 @@ class BusyBarPauseButton(BusyBarEntity, ButtonEntity):
             await self.coordinator.api.pause_busy()
         except BusyBarApiError as err:
             raise device_error(err) from err
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_request_refresh_full()
 
 
 class BusyBarResumeButton(BusyBarEntity, ButtonEntity):
-    _attr_translation_key = "resume_busy"
+    _attr_translation_key = "resume_timer"
 
     @property
     def available(self) -> bool:
@@ -84,4 +84,4 @@ class BusyBarResumeButton(BusyBarEntity, ButtonEntity):
             await self.coordinator.api.resume_busy()
         except BusyBarApiError as err:
             raise device_error(err) from err
-        await self.coordinator.async_request_refresh()
+        await self.coordinator.async_request_refresh_full()

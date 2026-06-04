@@ -14,7 +14,13 @@ rules:
   entity-unique-id: done
   has-entity-name: done
   entity-event-setup: done
-  appropriate-polling: done
+  appropriate-polling:
+    status: done
+    comment: >-
+      Tiered single coordinator at a 30s base. Countdown is a timestamp sensor
+      ticked by the frontend, so no fast poll is needed for it. Rarely-changing
+      endpoints are fetched on slower multiples (60s/5min); user writes force a
+      full refresh. Sustained rate ~0.17 req/s/device (was ~1.8).
   common-modules: done
   action-setup: done
   dependency-transparency:

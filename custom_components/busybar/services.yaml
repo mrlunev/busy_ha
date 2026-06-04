@@ -197,11 +197,19 @@ display_countdown:
       selector:
         boolean:
 
-start_busy:
+start_timer:
   target:
     device:
       integration: busybar
   fields:
+    mode:
+      default: infinite
+      selector:
+        select:
+          options:
+            - infinite
+            - countdown
+            - pomodoro
     theme:
       default: meeting
       selector:
@@ -224,46 +232,40 @@ start_busy:
           min: 1
           max: 1440
           unit_of_measurement: minutes
-
-start_pomodoro:
-  target:
-    device:
-      integration: busybar
-  fields:
     work_minutes:
       default: 25
       selector:
         number:
           min: 1
           max: 180
+          unit_of_measurement: minutes
     break_minutes:
       default: 5
       selector:
         number:
           min: 1
           max: 60
+          unit_of_measurement: minutes
     cycles:
       default: 4
       selector:
         number:
           min: 1
           max: 20
-    theme:
-      default: flow
+
+start_profile:
+  target:
+    device:
+      integration: busybar
+  fields:
+    slot:
+      required: true
+      example: busy
       selector:
         select:
           options:
-            - meeting
-            - dnd
-            - on_call
-            - on_air
-            - flow
-            - lunch
-            - back_soon
-            - booked
-            - chill_time
-            - keep_out
             - busy
+            - custom
 
 set_theme:
   target:
@@ -306,14 +308,14 @@ clear:
   target:
     device: {}
 
-stop_busy:
+stop_timer:
   target:
     device: {}
 
-pause_busy:
+pause_timer:
   target:
     device: {}
 
-resume_busy:
+resume_timer:
   target:
     device: {}
