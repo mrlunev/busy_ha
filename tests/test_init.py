@@ -57,7 +57,7 @@ async def test_setup_and_unload(hass: HomeAssistant) -> None:
 
     assert entry.state is ConfigEntryState.LOADED
     assert len(hass.states.async_all()) > 10
-    assert hass.services.has_service(DOMAIN, "notify")
+    assert hass.services.has_service(DOMAIN, "notify_one_line")
 
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()

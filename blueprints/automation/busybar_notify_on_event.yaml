@@ -1,13 +1,13 @@
 blueprint:
   name: BUSY Bar — Notify on event
   author: BUSY
-  description: >
+    description: >
     When a chosen entity reaches a chosen state (e.g. your washing machine goes
-    to "off"/"finished"), show an icon plus a message on a BUSY Bar — with the
-    icon, font, scroll speed, color and sound picked from the integration's
-    presets. You select the bar from a device dropdown, so it keeps working even
-    if the bar is renamed (it targets the device, not a name-derived entity_id),
-    and works the same on any number of bars.
+    to "off"/"finished"), show an icon plus a one-line message on a BUSY Bar —
+    with the icon, color and sound picked from the integration's presets. You
+    select the bar from a device dropdown, so it keeps working even if the bar is
+    renamed (it targets the device, not a name-derived entity_id), and works the
+    same on any number of bars.
 
     Note: the panel renders printable ASCII only — non-ASCII characters in the
     message become "?".
@@ -57,33 +57,6 @@ blueprint:
             - low_battery
             - start
             - setup
-    font:
-      name: Font
-      description: Text font.
-      default: normal
-      selector:
-        select:
-          options:
-            - tiny
-            - small
-            - normal
-            - condensed
-            - bold
-            - large
-            - extra_large
-    scroll:
-      name: Scroll
-      description: >
-        Marquee speed. "auto" scrolls only when the text is too long to fit.
-      default: auto
-      selector:
-        select:
-          options:
-            - auto
-            - "off"
-            - slow
-            - normal
-            - fast
     color:
       name: Color
       description: Text color.
@@ -124,14 +97,12 @@ trigger:
     entity_id: !input trigger_entity
     to: !input to_state
 action:
-  - action: busybar.notify
+  - action: busybar.notify_one_line
     target:
       device_id: !input bar
     data:
       message: !input message
       icon: !input icon
-      font: !input font
-      scroll: !input scroll
       color: !input color
       sound: !input sound
       duration: !input duration

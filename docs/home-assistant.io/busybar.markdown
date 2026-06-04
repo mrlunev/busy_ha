@@ -80,11 +80,14 @@ The integration creates a device with the following entities.
 
 ## Actions
 
-The integration provides actions such as `busybar.notify`,
-`busybar.display_text`, `busybar.display_countdown`, `busybar.start_timer`
-(mode: open-ended / countdown / pomodoro), `busybar.start_profile`
-(launch the `busy` or `custom` preset), `busybar.stop_timer` and
-`busybar.set_theme`. With a single bar configured the `target` may be omitted.
+The integration provides notification actions — `busybar.notify_one_line`,
+`busybar.notify_small_two_lines` and `busybar.notify_picture` (each with an
+optional icon and sound; the text is offset automatically so it never overlaps
+the icon) — plus `busybar.simple_timer` (an on-screen HH:MM:SS countdown with an
+end sound), `busybar.start_timer` (mode: open-ended / countdown / pomodoro),
+`busybar.start_profile` (launch the `busy` or `custom` preset),
+`busybar.stop_timer`, `busybar.set_theme`, `busybar.play_sound` and
+`busybar.clear`. With a single bar configured the `target` may be omitted.
 
 Display text is limited to printable ASCII; other characters are replaced.
 

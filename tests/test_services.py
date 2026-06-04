@@ -21,111 +21,202 @@ def _device_id(hass: HomeAssistant) -> str:
     return device.id
 
 
-async def test_notify_plain(hass: HomeAssistant) -> None:
-    """A bare notify draws a single centered text element."""
+async def test_notify_one_line_plain(hass: HomeAssistant) -> None:
+    """One-line notify with no icon draws a single left-anchored text element."""
     api = make_api()
     await setup_busybar(hass, api)
     await hass.services.async_call(
-        DOMAIN, "notify", {"message": "Hello"}, blocking=True
+        DOMAIN, "notify_one_line", {"message": "Hello"}, blocking=True
     )
     payload = api.draw.call_args.args[0]
     assert payload["application_name"]
-    texts = [e for e in payload["elements"] if e["type"] == "text"]
-    assert texts and texts[-1]["text"] == "Hello"
-    assert texts[-1]["align"] == "center"
+    elements = payload["elements"]
+    assert not any(e["type"] == "image" for e in elements)
+    text = [e for e in elements if e["type"] == "text"][-1]
+    assert text["text"] == "Hello"
+    assert text["align"] == "mid_left" and text["x"] == 2
 
 
-async def test_notify_with_icon_sound_and_scroll(hass: HomeAssistant) -> None:
-    """Icon + sound + forced scroll add an image element and play audio."""
+async def test_notify_one_line_icon_shifts_text(hass: HomeAssistant) -> None:
+    """An icon adds an image element and shifts the text right by the icon width."""
     api = make_api()
     await setup_busybar(hass, api)
+    # 'check' is an 8px icon → text x = 8 + ICON_TEXT_GAP(2) = 10.
     await hass.services.async_call(
         DOMAIN,
-        "notify",
-        {
-            "message": "Laundry is done and ready",
-            "title": "Washer",
-            "icon": "check",
-            "sound": "event",
-            "scroll": "fast",
-            "display": "both",
-        },
+        "notify_one_line",
+        {"message": "Hi", "icon": "check", "sound": "event"},
         blocking=True,
     )
     payload = api.draw.call_args.args[0]
     assert any(e["type"] == "image" for e in payload["elements"])
-    scrolled = [e for e in payload["elements"] if e.get("scroll_rate")]
-    assert scrolled and scrolled[0]["scroll_rate"] > 0
+    text = [e for e in payload["elements"] if e["type"] == "text"][-1]
+    assert text["align"] == "mid_left" and text["x"] == 10
+    assert "scroll_rate" not in text  # short text → no marquee
     api.play_audio.assert_awaited()
 
 
-async def test_notify_non_ascii_is_sanitized(hass: HomeAssistant) -> None:
+async def test_notify_one_line_long_text_scrolls(hass: HomeAssistant) -> None:
+    """A line too long to fit gets a marquee (scroll_rate) clipped to a width."""
+    api = make_api()
+    await setup_busybar(hass, api)
+    await hass.services.async_call(
+        DOMAIN,
+        "notify_one_line",
+        {"message": "This is a very long message that overflows"},
+        blocking=True,
+    )
+    text = [e for e in api.draw.call_args.args[0]["elements"] if e["type"] == "text"][-1]
+    assert text.get("scroll_rate", 0) > 0 and "width" in text
+
+
+async def test_notify_one_line_non_ascii_is_sanitized(hass: HomeAssistant) -> None:
     """Cyrillic/emoji are replaced so the device font schema accepts the text."""
     api = make_api()
     await setup_busybar(hass, api)
     await hass.services.async_call(
-        DOMAIN, "notify", {"message": "Привет"}, blocking=True
+        DOMAIN, "notify_one_line", {"message": "Привет"}, blocking=True
     )
     payload = api.draw.call_args.args[0]
     text = [e for e in payload["elements"] if e["type"] == "text"][-1]["text"]
     assert all(0x20 <= ord(c) <= 0x7E for c in text)
 
 
-async def test_display_text_interrupt_priority(hass: HomeAssistant) -> None:
+async def test_notify_one_line_interrupt_priority(hass: HomeAssistant) -> None:
     """interrupt=True raises the draw priority above the default."""
     from custom_components.busybar.const import PRIORITY_DEFAULT, PRIORITY_INTERRUPT
 
     api = make_api()
     await setup_busybar(hass, api)
     await hass.services.async_call(
-        DOMAIN, "display_text", {"text": "Hi", "interrupt": True}, blocking=True
+        DOMAIN, "notify_one_line", {"message": "Hi", "interrupt": True}, blocking=True
     )
     assert api.draw.call_args.args[0]["priority"] == PRIORITY_INTERRUPT
     await hass.services.async_call(
-        DOMAIN, "display_text", {"text": "Hi"}, blocking=True
+        DOMAIN, "notify_one_line", {"message": "Hi"}, blocking=True
     )
     assert api.draw.call_args.args[0]["priority"] == PRIORITY_DEFAULT
 
 
-async def test_display_image_stock_vs_app_path(hass: HomeAssistant) -> None:
-    """'shared/...' maps to stock_path, anything else to path."""
-    api = make_api()
-    await setup_busybar(hass, api)
-    await hass.services.async_call(
-        DOMAIN, "display_image", {"image": "shared/images/foo.image"}, blocking=True
-    )
-    assert "stock_path" in api.draw.call_args.args[0]["elements"][0]
-
-    await hass.services.async_call(
-        DOMAIN, "display_image", {"image": "my-app/logo.png"}, blocking=True
-    )
-    assert "path" in api.draw.call_args.args[0]["elements"][0]
-
-
-async def test_display_animation(hass: HomeAssistant) -> None:
+async def test_notify_two_lines(hass: HomeAssistant) -> None:
+    """Two lines are stacked at y=1 and y=8 and never overlap."""
     api = make_api()
     await setup_busybar(hass, api)
     await hass.services.async_call(
         DOMAIN,
-        "display_animation",
-        {"animation": "shared/anim/spin.anim", "loop": False},
+        "notify_small_two_lines",
+        {"line_1": "Error occured", "line_2": "Try again"},
         blocking=True,
     )
+    texts = [e for e in api.draw.call_args.args[0]["elements"] if e["type"] == "text"]
+    assert len(texts) == 2
+    assert texts[0]["text"] == "Error occured" and texts[0]["y"] == 1
+    assert texts[1]["text"] == "Try again" and texts[1]["y"] == 8
+    assert all(t["x"] == 2 for t in texts)  # no icon → left margin
+
+
+async def test_notify_two_lines_icon_shifts_text(hass: HomeAssistant) -> None:
+    """With an icon, both lines shift right by the icon width."""
+    api = make_api()
+    await setup_busybar(hass, api)
+    # 'start' is an 11px icon → text x = 11 + 2 = 13.
+    await hass.services.async_call(
+        DOMAIN,
+        "notify_small_two_lines",
+        {"line_1": "A", "line_2": "B", "icon": "start"},
+        blocking=True,
+    )
+    elements = api.draw.call_args.args[0]["elements"]
+    assert any(e["type"] == "image" for e in elements)
+    texts = [e for e in elements if e["type"] == "text"]
+    assert all(t["x"] == 13 for t in texts)
+
+
+async def test_notify_picture_centers_icon(hass: HomeAssistant) -> None:
+    """A picture is a stock icon shown centered, with optional sound."""
+    api = make_api()
+    await setup_busybar(hass, api)
+    await hass.services.async_call(
+        DOMAIN, "notify_picture", {"picture": "info", "sound": "reminder"}, blocking=True
+    )
     el = api.draw.call_args.args[0]["elements"][0]
-    assert el["type"] == "animation" and el["loop"] is False
+    assert el["type"] == "image" and el["align"] == "center"
+    assert el["stock_path"].endswith(".image")
+    api.play_audio.assert_awaited()
 
 
-async def test_display_countdown(hass: HomeAssistant) -> None:
+async def test_simple_timer_draws_countdown(hass: HomeAssistant) -> None:
+    """simple_timer draws a countdown to now+total with a timeout that clears it."""
     api = make_api()
     await setup_busybar(hass, api)
     await hass.services.async_call(
         DOMAIN,
-        "display_countdown",
-        {"until": "2099-01-01T00:00:00+00:00"},
+        "simple_timer",
+        {"hours": 0, "minutes": 1, "seconds": 30, "sound": "none"},
         blocking=True,
     )
     el = api.draw.call_args.args[0]["elements"][0]
     assert el["type"] == "countdown" and el["timestamp"].isdigit()
+    assert el["timeout"] == 90 and el["show_hours"] == "always"
+
+
+async def test_simple_timer_zero_raises(hass: HomeAssistant) -> None:
+    """A zero-length timer is rejected."""
+    api = make_api()
+    await setup_busybar(hass, api)
+    with pytest.raises(ServiceValidationError):
+        await hass.services.async_call(
+            DOMAIN,
+            "simple_timer",
+            {"hours": 0, "minutes": 0, "seconds": 0},
+            blocking=True,
+        )
+
+
+async def test_simple_timer_schedules_end_sound(hass: HomeAssistant) -> None:
+    """The end-of-timer sound is scheduled for the full duration and plays on fire."""
+    from unittest.mock import patch
+
+    from homeassistant.util import dt as dt_util
+
+    captured: dict = {}
+
+    def _fake_call_later(_hass, delay, action):
+        captured["delay"] = delay
+        captured["action"] = action
+        return lambda: None
+
+    api = make_api()
+    await setup_busybar(hass, api)
+    with patch(
+        "custom_components.busybar.async_call_later", side_effect=_fake_call_later
+    ):
+        await hass.services.async_call(
+            DOMAIN,
+            "simple_timer",
+            {"minutes": 2, "seconds": 30, "sound": "event"},
+            blocking=True,
+        )
+    assert captured["delay"] == 150  # 2m30s, fired when the countdown ends
+    api.play_audio.assert_not_awaited()  # nothing plays at start
+    await captured["action"](dt_util.utcnow())  # simulate the deadline
+    api.play_audio.assert_awaited()
+
+
+async def test_simple_timer_no_sound_schedules_nothing(hass: HomeAssistant) -> None:
+    """sound='none' draws the countdown without scheduling any end sound."""
+    from unittest.mock import patch
+
+    api = make_api()
+    await setup_busybar(hass, api)
+    with patch(
+        "custom_components.busybar.async_call_later"
+    ) as call_later:
+        await hass.services.async_call(
+            DOMAIN, "simple_timer", {"seconds": 30, "sound": "none"}, blocking=True
+        )
+    call_later.assert_not_called()
+    api.draw.assert_awaited()
 
 
 async def test_start_timer_countdown_and_infinite(hass: HomeAssistant) -> None:
@@ -226,7 +317,7 @@ async def test_target_by_device_id(hass: HomeAssistant) -> None:
     await setup_busybar(hass, api)
     await hass.services.async_call(
         DOMAIN,
-        "notify",
+        "notify_one_line",
         {"message": "Hi", ATTR_DEVICE_ID: [_device_id(hass)]},
         blocking=True,
     )
@@ -239,7 +330,7 @@ async def test_target_unknown_device_raises(hass: HomeAssistant) -> None:
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(
             DOMAIN,
-            "notify",
+            "notify_one_line",
             {"message": "Hi", ATTR_DEVICE_ID: ["does-not-exist"]},
             blocking=True,
         )
@@ -253,24 +344,8 @@ async def test_no_loaded_entry_raises(hass: HomeAssistant) -> None:
     await hass.async_block_till_done()
     with pytest.raises(ServiceValidationError):
         await hass.services.async_call(
-            DOMAIN, "notify", {"message": "Hi"}, blocking=True
+            DOMAIN, "notify_one_line", {"message": "Hi"}, blocking=True
         )
-
-
-async def test_notify_icon_without_scroll(hass: HomeAssistant) -> None:
-    """Icon + no scroll left-anchors the text beside the icon (no scroll_rate)."""
-    api = make_api()
-    await setup_busybar(hass, api)
-    # Short message + auto scroll → no marquee; the icon still left-anchors text.
-    await hass.services.async_call(
-        DOMAIN,
-        "notify",
-        {"message": "Hi", "icon": "check"},
-        blocking=True,
-    )
-    payload = api.draw.call_args.args[0]
-    msg = [e for e in payload["elements"] if e["type"] == "text"][-1]
-    assert msg["align"] == "mid_left" and "scroll_rate" not in msg
 
 
 async def test_target_by_area(hass: HomeAssistant) -> None:
@@ -284,7 +359,7 @@ async def test_target_by_area(hass: HomeAssistant) -> None:
     device = dev_reg.async_get_device(identifiers={(DOMAIN, SERIAL)})
     dev_reg.async_update_device(device.id, area_id=area.id)
     await hass.services.async_call(
-        DOMAIN, "notify", {"message": "Hi", "area_id": [area.id]}, blocking=True
+        DOMAIN, "notify_one_line", {"message": "Hi", "area_id": [area.id]}, blocking=True
     )
     api.draw.assert_awaited()
 
@@ -297,7 +372,7 @@ async def test_target_by_entity_id(hass: HomeAssistant) -> None:
     await setup_busybar(hass, api)
     eid = er.async_get(hass).async_get_entity_id("number", DOMAIN, f"{SERIAL}_brightness")
     await hass.services.async_call(
-        DOMAIN, "notify", {"message": "Hi", "entity_id": [eid]}, blocking=True
+        DOMAIN, "notify_one_line", {"message": "Hi", "entity_id": [eid]}, blocking=True
     )
     api.draw.assert_awaited()
 
@@ -309,5 +384,5 @@ async def test_api_error_becomes_homeassistant_error(hass: HomeAssistant) -> Non
     await setup_busybar(hass, api)
     with pytest.raises(HomeAssistantError):
         await hass.services.async_call(
-            DOMAIN, "display_text", {"text": "Hi"}, blocking=True
+            DOMAIN, "notify_one_line", {"message": "Hi"}, blocking=True
         )

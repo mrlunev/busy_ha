@@ -48,7 +48,7 @@ blueprint:
 
 mode: parallel
 sequence:
-  - action: busybar.notify
+  - action: busybar.notify_one_line
     target:
       device_id: !input bar
     data:

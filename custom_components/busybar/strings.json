@@ -137,6 +137,9 @@
     "duration_required": {
       "message": "A countdown timer needs a duration. Set the duration field or pick another mode."
     },
+    "time_required": {
+      "message": "Set a non-zero time (hours, minutes or seconds) for the timer."
+    },
     "no_update_available": {
       "message": "No firmware version is available to install."
     },

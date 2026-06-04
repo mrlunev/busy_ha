@@ -15,6 +15,7 @@ from homeassistant.helpers import (
     entity_registry as er,
 )
 from homeassistant.helpers.aiohttp_client import async_get_clientsession
+from homeassistant.helpers.event import async_call_later
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
@@ -22,13 +23,14 @@ from .api import BusyBarApi, BusyBarApiError
 from .const import (
     APPLICATION_NAME,
     CONF_TOKEN,
+    DEFAULT_TEXT_FONT,
     DOMAIN,
+    ICON_TEXT_GAP,
     PRIORITY_DEFAULT,
     PRIORITY_INTERRUPT,
     SCROLL_RATES,
     STOCK_ICONS,
     STOCK_SOUNDS,
-    TEXT_FONTS,
     THEMES,
 )
 from .coordinator import BusyBarConfigEntry, BusyBarCoordinator
@@ -44,11 +46,14 @@ PLATFORMS = [
     "update",
 ]
 
-SERVICE_NOTIFY = "notify"
-SERVICE_DISPLAY_TEXT = "display_text"
-SERVICE_DISPLAY_IMAGE = "display_image"
-SERVICE_DISPLAY_ANIMATION = "display_animation"
-SERVICE_DISPLAY_COUNTDOWN = "display_countdown"
+# Notification design templates. Each is a separate action with its own fields
+# (HA forms are static — it cannot swap fields based on a "template" dropdown),
+# so "pick a template" == "pick the action". The layout (text coordinates) is
+# computed in code from the chosen icon's width.
+SERVICE_NOTIFY_ONE_LINE = "notify_one_line"
+SERVICE_NOTIFY_TWO_LINES = "notify_small_two_lines"
+SERVICE_NOTIFY_PICTURE = "notify_picture"
+SERVICE_SIMPLE_TIMER = "simple_timer"
 # A running timer always has one of three types (open-ended / countdown /
 # pomodoro); "busy" and "custom" are just two preset slots of the same app, not
 # different functions. So the actions are named by timer behaviour, plus one
@@ -81,12 +86,6 @@ def _ascii(text: str) -> str:
     return cleaned or " "
 
 
-def _displays(display: str) -> list[str]:
-    if display == "both":
-        return ["front", "back"]
-    return [display]
-
-
 def _scroll_rate(scroll: str, text: str) -> int:
     """Resolve a named scroll speed to a scroll_rate (pixels/minute).
 
@@ -97,16 +96,30 @@ def _scroll_rate(scroll: str, text: str) -> int:
     return SCROLL_RATES.get(scroll, 0)
 
 
-def _asset_ref(value: str) -> dict:
-    """Map an asset string to {stock_path} or {path}.
+def _icon(name: str | None) -> tuple[str, int] | None:
+    """Resolve an icon name to (stock_path, width_px), or None for no icon."""
+    if not name or name == "none":
+        return None
+    return STOCK_ICONS.get(name)
 
-    Stock assets shipped in firmware live under "shared/" with a sub-folder and
-    file extension (e.g. "shared/images/checkmark_front_8x8.image"); anything
-    else is treated as an app asset path uploaded via /api/assets/upload.
-    """
-    if value.startswith("shared/"):
-        return {"stock_path": value}
-    return {"path": value}
+
+def _icon_element(eid: int, icon: tuple[str, int], duration: int) -> dict:
+    """A left-anchored, vertically centered icon element."""
+    return {
+        "id": str(eid),
+        "type": "image",
+        "stock_path": icon[0],
+        "display": "front",
+        "align": "mid_left",
+        "x": 0,
+        "y": 8,
+        "timeout": duration,
+    }
+
+
+def _text_x(icon: tuple[str, int] | None) -> int:
+    """Left X for text: just past the icon (icon width + gap), else a small margin."""
+    return icon[1] + ICON_TEXT_GAP if icon else 2
 
 
 # Optional target keys. Unlike cv.make_entity_service_schema, these do NOT
@@ -151,7 +164,7 @@ async def async_unload_entry(hass: HomeAssistant, entry: BusyBarConfigEntry) -> 
 
 
 def _register_services(hass: HomeAssistant) -> None:
-    if hass.services.has_service(DOMAIN, SERVICE_NOTIFY):
+    if hass.services.has_service(DOMAIN, SERVICE_NOTIFY_ONE_LINE):
         return
 
     def _coordinators(call: ServiceCall) -> list[BusyBarCoordinator]:
@@ -212,190 +225,172 @@ def _register_services(hass: HomeAssistant) -> None:
 
         hass.services.async_register(DOMAIN, name, wrapped, schema=schema)
 
-    async def _notify(call: ServiceCall) -> None:
-        message = call.data["message"]
-        title = call.data.get("title")
-        color = call.data.get("color", [255, 255, 255])
-        sound = call.data.get("sound", "none")
-        icon = call.data.get("icon", "none")
-        font = call.data.get("font", "normal")
-        scroll = call.data.get("scroll", "auto")
-        display = call.data.get("display", "front")
-        duration = int(call.data.get("duration", 10))
-        interrupt = call.data.get("interrupt", False)
-        priority = PRIORITY_INTERRUPT if interrupt else PRIORITY_DEFAULT
-        hex_color = _rgb_to_hexaa(color)
+    async def _play_stock_sound(coord: BusyBarCoordinator, sound: str | None) -> None:
+        """Play a stock sound if one was chosen (ignores 'none'/unknown)."""
+        if sound and sound != "none" and sound in STOCK_SOUNDS:
+            await coord.api.play_audio(
+                {"application_name": APPLICATION_NAME, "stock_path": STOCK_SOUNDS[sound]}
+            )
 
-        icon_path = STOCK_ICONS.get(icon) if icon and icon != "none" else None
-        # Leave room for the icon on the left; the curated icons are <=12px wide.
-        text_x = 14 if icon_path else 0
-        rate = _scroll_rate(scroll, message)
-
+    async def _draw_and_sound(
+        call: ServiceCall, elements: list[dict], priority: int, sound: str | None
+    ) -> None:
+        """Send one front-panel draw to every targeted bar, then play the sound."""
         for coord in _coordinators(call):
-            elements = []
-            eid = 0
-            for disp in _displays(display):
-                if title:
-                    elements.append(
-                        {
-                            "id": str(eid),
-                            "type": "text",
-                            "text": _ascii(title[:40]),
-                            "font": "bold",
-                            "color": hex_color,
-                            "display": disp,
-                            "align": "top_mid",
-                            "timeout": duration,
-                        }
-                    )
-                    eid += 1
-                if icon_path:
-                    elements.append(
-                        {
-                            "id": str(eid),
-                            "type": "image",
-                            "stock_path": icon_path,
-                            "display": disp,
-                            "align": "mid_left",
-                            "x": 0,
-                            "y": 8,
-                            "timeout": duration,
-                        }
-                    )
-                    eid += 1
-                msg: dict[str, Any] = {
+            await coord.api.draw(
+                {
+                    "application_name": APPLICATION_NAME,
+                    "priority": priority,
+                    "elements": elements,
+                }
+            )
+            # Sound is fired right after the draw so it lands with the visual.
+            await _play_stock_sound(coord, sound)
+            await coord.async_request_refresh_full()
+
+    async def _notify_one_line(call: ServiceCall) -> None:
+        message = _ascii(call.data["message"][:80])
+        icon = _icon(call.data.get("icon"))
+        color = _rgb_to_hexaa(call.data.get("color", [255, 255, 255]))
+        sound = call.data.get("sound", "none")
+        duration = int(call.data.get("duration", 10))
+        priority = PRIORITY_INTERRUPT if call.data.get("interrupt") else PRIORITY_DEFAULT
+
+        text_x = _text_x(icon)
+        elements: list[dict] = []
+        eid = 0
+        if icon:
+            elements.append(_icon_element(eid, icon, duration))
+            eid += 1
+        msg: dict[str, Any] = {
+            "id": str(eid),
+            "type": "text",
+            "text": message,
+            "font": DEFAULT_TEXT_FONT,
+            "color": color,
+            "display": "front",
+            "align": "mid_left",
+            "x": text_x,
+            "y": 8,
+            "timeout": duration,
+        }
+        # Marquee a single line only when it is too long to fit the panel.
+        if rate := _scroll_rate("auto", message):
+            msg["scroll_rate"] = rate
+            msg["width"] = 72 - text_x
+        elements.append(msg)
+        await _draw_and_sound(call, elements, priority, sound)
+
+    async def _notify_two_lines(call: ServiceCall) -> None:
+        line_1 = _ascii(call.data["line_1"][:80])
+        line_2 = _ascii(call.data["line_2"][:80])
+        icon = _icon(call.data.get("icon"))
+        color = _rgb_to_hexaa(call.data.get("color", [255, 255, 255]))
+        sound = call.data.get("sound", "none")
+        duration = int(call.data.get("duration", 10))
+        priority = PRIORITY_INTERRUPT if call.data.get("interrupt") else PRIORITY_DEFAULT
+
+        text_x = _text_x(icon)
+        elements: list[dict] = []
+        eid = 0
+        if icon:
+            elements.append(_icon_element(eid, icon, duration))
+            eid += 1
+        # Two stacked lines, top-anchored at y=1 and y=8 so they never overlap.
+        for line, y in ((line_1, 1), (line_2, 8)):
+            elements.append(
+                {
                     "id": str(eid),
                     "type": "text",
-                    "text": _ascii(message[:80]),
-                    "font": font,
-                    "color": hex_color,
-                    "display": disp,
+                    "text": line,
+                    "font": DEFAULT_TEXT_FONT,
+                    "color": color,
+                    "display": "front",
+                    "align": "top_left",
+                    "x": text_x,
+                    "y": y,
                     "timeout": duration,
                 }
-                if rate:
-                    # Scrolling text is left-anchored and clipped to a width so it
-                    # marquees within the space left of the icon (if any).
-                    msg["align"] = "mid_left"
-                    msg["x"] = text_x
-                    msg["y"] = 8
-                    msg["scroll_rate"] = rate
-                    msg["width"] = 72 - text_x
-                elif icon_path:
-                    msg["align"] = "mid_left"
-                    msg["x"] = text_x
-                    msg["y"] = 8
-                else:
-                    msg["align"] = "center"
-                    msg["x"] = 36
-                    msg["y"] = 8
-                elements.append(msg)
-                eid += 1
-            await coord.api.draw(
-                {
-                    "application_name": APPLICATION_NAME,
-                    "priority": priority,
-                    "elements": elements,
-                }
             )
-            if sound and sound != "none" and sound in STOCK_SOUNDS:
-                await coord.api.play_audio(
-                    {
-                        "application_name": APPLICATION_NAME,
-                        "stock_path": STOCK_SOUNDS[sound],
-                    }
-                )
-            await coord.async_request_refresh_full()
+            eid += 1
+        await _draw_and_sound(call, elements, priority, sound)
 
-    async def _display_text(call: ServiceCall) -> None:
-        text = call.data["text"]
-        color = call.data.get("color", [255, 255, 255])
-        display = call.data.get("display", "front")
-        duration = int(call.data.get("duration", 0))
-        interrupt = call.data.get("interrupt", False)
-        priority = PRIORITY_INTERRUPT if interrupt else PRIORITY_DEFAULT
-        hex_color = _rgb_to_hexaa(color)
-        for coord in _coordinators(call):
-            elements = []
-            for i, disp in enumerate(_displays(display)):
-                elements.append(
-                    {
-                        "id": str(i),
-                        "type": "text",
-                        "text": _ascii(text[:80]),
-                        "font": "normal",
-                        "color": hex_color,
-                        "display": disp,
-                        "align": "center",
-                        "timeout": duration,
-                    }
-                )
-            await coord.api.draw(
-                {
-                    "application_name": APPLICATION_NAME,
-                    "priority": priority,
-                    "elements": elements,
-                }
+    async def _notify_picture(call: ServiceCall) -> None:
+        # Stock catalog has no full-panel pictures yet, so a "picture" is one of
+        # the stock icons shown centered on the panel.
+        icon = STOCK_ICONS[call.data["picture"]]
+        sound = call.data.get("sound", "none")
+        duration = int(call.data.get("duration", 10))
+        priority = PRIORITY_INTERRUPT if call.data.get("interrupt") else PRIORITY_DEFAULT
+        elements = [
+            {
+                "id": "0",
+                "type": "image",
+                "stock_path": icon[0],
+                "display": "front",
+                "align": "center",
+                "x": 36,
+                "y": 8,
+                "timeout": duration,
+            }
+        ]
+        await _draw_and_sound(call, elements, priority, sound)
+
+    async def _simple_timer(call: ServiceCall) -> None:
+        total = (
+            int(call.data.get("hours", 0)) * 3600
+            + int(call.data.get("minutes", 0)) * 60
+            + int(call.data.get("seconds", 0))
+        )
+        if total <= 0:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="time_required"
             )
-            await coord.async_request_refresh_full()
-
-    async def _display_image(call: ServiceCall) -> None:
-        ref = _asset_ref(call.data["image"])
-        display = call.data.get("display", "front")
-        duration = int(call.data.get("duration", 0))
-        interrupt = call.data.get("interrupt", False)
-        priority = PRIORITY_INTERRUPT if interrupt else PRIORITY_DEFAULT
-        for coord in _coordinators(call):
-            elements = [
-                {"id": str(i), "type": "image", "display": disp, "timeout": duration, **ref}
-                for i, disp in enumerate(_displays(display))
-            ]
-            await coord.api.draw(
-                {"application_name": APPLICATION_NAME, "priority": priority, "elements": elements}
-            )
-            await coord.async_request_refresh_full()
-
-    async def _display_animation(call: ServiceCall) -> None:
-        ref = _asset_ref(call.data["animation"])
-        display = call.data.get("display", "front")
-        loop = call.data.get("loop", True)
-        duration = int(call.data.get("duration", 0))
-        interrupt = call.data.get("interrupt", False)
-        priority = PRIORITY_INTERRUPT if interrupt else PRIORITY_DEFAULT
-        for coord in _coordinators(call):
-            elements = [
-                {"id": str(i), "type": "animation", "display": disp, "timeout": duration, "loop": loop, **ref}
-                for i, disp in enumerate(_displays(display))
-            ]
-            await coord.api.draw(
-                {"application_name": APPLICATION_NAME, "priority": priority, "elements": elements}
-            )
-            await coord.async_request_refresh_full()
-
-    async def _display_countdown(call: ServiceCall) -> None:
-        until = call.data["until"]
-        timestamp = str(int(dt_util.as_timestamp(until)))
-        display = call.data.get("display", "front")
         color = _rgb_to_hexaa(call.data.get("color", [255, 255, 255]))
-        interrupt = call.data.get("interrupt", False)
-        priority = PRIORITY_INTERRUPT if interrupt else PRIORITY_DEFAULT
-        for coord in _coordinators(call):
-            elements = [
-                {
-                    "id": str(i),
-                    "type": "countdown",
-                    "display": disp,
-                    "align": "center",
-                    "timestamp": timestamp,
-                    "direction": "time_left",
-                    "show_hours": "when_non_zero",
-                    "color": color,
-                }
-                for i, disp in enumerate(_displays(display))
-            ]
+        sound = call.data.get("sound", "event")
+        priority = PRIORITY_INTERRUPT if call.data.get("interrupt") else PRIORITY_DEFAULT
+        timestamp = str(int(dt_util.utcnow().timestamp()) + total)
+        # The firmware renders the countdown digits in a fixed small font (the
+        # `font` field is ignored for countdown elements), so we don't expose one.
+        elements = [
+            {
+                "id": "0",
+                "type": "countdown",
+                "display": "front",
+                "align": "center",
+                "x": 36,
+                "y": 8,
+                "timestamp": timestamp,
+                "direction": "time_left",
+                "show_hours": "always",
+                "color": color,
+                "timeout": total,
+            }
+        ]
+        coords = _coordinators(call)
+        for coord in coords:
             await coord.api.draw(
-                {"application_name": APPLICATION_NAME, "priority": priority, "elements": elements}
+                {
+                    "application_name": APPLICATION_NAME,
+                    "priority": priority,
+                    "elements": elements,
+                }
             )
             await coord.async_request_refresh_full()
+
+        # The draw countdown has no completion sound, so schedule it HA-side.
+        # Best-effort (a HA restart before the deadline cancels it) — fine for a
+        # transient on-screen timer.
+        if sound and sound != "none" and sound in STOCK_SOUNDS:
+
+            async def _fire_end_sound(_now, _coords=coords, _sound=sound) -> None:
+                for coord in _coords:
+                    try:
+                        await _play_stock_sound(coord, _sound)
+                    except BusyBarApiError:
+                        pass
+
+            async_call_later(hass, total, _fire_end_sound)
 
     async def _start_timer(call: ServiceCall) -> None:
         mode = call.data.get("mode", "infinite")
@@ -454,70 +449,61 @@ def _register_services(hass: HomeAssistant) -> None:
         for coord in _coordinators(call):
             await coord.api.clear_display(APPLICATION_NAME)
 
+    _color_field = vol.All(cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(0, 255))])
+    _icon_field = vol.In(list(STOCK_ICONS.keys()) + ["none"])
+    _sound_field = vol.In(list(STOCK_SOUNDS.keys()) + ["none"])
+
     _register(
-        SERVICE_NOTIFY,
-        _notify,
+        SERVICE_NOTIFY_ONE_LINE,
+        _notify_one_line,
         _schema(
             {
                 vol.Required("message"): cv.string,
-                vol.Optional("title"): cv.string,
-                vol.Optional("icon", default="none"): vol.In(list(STOCK_ICONS.keys()) + ["none"]),
-                vol.Optional("font", default="normal"): vol.In(TEXT_FONTS),
-                vol.Optional("scroll", default="auto"): vol.In(["auto", *SCROLL_RATES.keys()]),
-                vol.Optional("color"): vol.All(cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(0, 255))]),
-                vol.Optional("sound"): vol.In(list(STOCK_SOUNDS.keys()) + ["none"]),
-                vol.Optional("display", default="front"): vol.In(["front", "back", "both"]),
+                vol.Optional("icon", default="none"): _icon_field,
+                vol.Optional("color"): _color_field,
+                vol.Optional("sound", default="none"): _sound_field,
                 vol.Optional("duration", default=10): vol.All(vol.Coerce(int), vol.Range(0, 3600)),
                 vol.Optional("interrupt", default=False): cv.boolean,
             }
         ),
     )
     _register(
-        SERVICE_DISPLAY_TEXT,
-        _display_text,
+        SERVICE_NOTIFY_TWO_LINES,
+        _notify_two_lines,
         _schema(
             {
-                vol.Required("text"): cv.string,
-                vol.Optional("color"): vol.All(cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(0, 255))]),
-                vol.Optional("display", default="front"): vol.In(["front", "back", "both"]),
-                vol.Optional("duration", default=0): vol.All(vol.Coerce(int), vol.Range(0, 86400)),
+                vol.Required("line_1"): cv.string,
+                vol.Required("line_2"): cv.string,
+                vol.Optional("icon", default="none"): _icon_field,
+                vol.Optional("color"): _color_field,
+                vol.Optional("sound", default="none"): _sound_field,
+                vol.Optional("duration", default=10): vol.All(vol.Coerce(int), vol.Range(0, 3600)),
                 vol.Optional("interrupt", default=False): cv.boolean,
             }
         ),
     )
     _register(
-        SERVICE_DISPLAY_IMAGE,
-        _display_image,
+        SERVICE_NOTIFY_PICTURE,
+        _notify_picture,
         _schema(
             {
-                vol.Required("image"): cv.string,
-                vol.Optional("display", default="front"): vol.In(["front", "back", "both"]),
-                vol.Optional("duration", default=0): vol.All(vol.Coerce(int), vol.Range(0, 86400)),
+                vol.Required("picture"): vol.In(list(STOCK_ICONS.keys())),
+                vol.Optional("sound", default="none"): _sound_field,
+                vol.Optional("duration", default=10): vol.All(vol.Coerce(int), vol.Range(0, 3600)),
                 vol.Optional("interrupt", default=False): cv.boolean,
             }
         ),
     )
     _register(
-        SERVICE_DISPLAY_ANIMATION,
-        _display_animation,
+        SERVICE_SIMPLE_TIMER,
+        _simple_timer,
         _schema(
             {
-                vol.Required("animation"): cv.string,
-                vol.Optional("loop", default=True): cv.boolean,
-                vol.Optional("display", default="front"): vol.In(["front", "back", "both"]),
-                vol.Optional("duration", default=0): vol.All(vol.Coerce(int), vol.Range(0, 86400)),
-                vol.Optional("interrupt", default=False): cv.boolean,
-            }
-        ),
-    )
-    _register(
-        SERVICE_DISPLAY_COUNTDOWN,
-        _display_countdown,
-        _schema(
-            {
-                vol.Required("until"): cv.datetime,
-                vol.Optional("color"): vol.All(cv.ensure_list, [vol.All(vol.Coerce(int), vol.Range(0, 255))]),
-                vol.Optional("display", default="front"): vol.In(["front", "back", "both"]),
+                vol.Optional("hours", default=0): vol.All(vol.Coerce(int), vol.Range(0, 23)),
+                vol.Optional("minutes", default=5): vol.All(vol.Coerce(int), vol.Range(0, 59)),
+                vol.Optional("seconds", default=0): vol.All(vol.Coerce(int), vol.Range(0, 59)),
+                vol.Optional("color"): _color_field,
+                vol.Optional("sound", default="event"): _sound_field,
                 vol.Optional("interrupt", default=False): cv.boolean,
             }
         ),

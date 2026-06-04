@@ -1,4 +1,8 @@
-notify:
+# --- Notifications (design templates) -------------------------------------
+# Each template is its own action with its own fields. The text position is
+# computed in code from the chosen icon size, so text and icon never overlap.
+
+notify_one_line:
   target:
     device:
       integration: busybar
@@ -6,10 +10,6 @@ notify:
     message:
       required: true
       example: "Laundry done!"
-      selector:
-        text:
-    title:
-      example: "Home Assistant"
       selector:
         text:
     icon:
@@ -27,49 +27,19 @@ notify:
             - low_battery
             - start
             - setup
-    font:
-      default: normal
-      selector:
-        select:
-          options:
-            - tiny
-            - small
-            - normal
-            - condensed
-            - bold
-            - large
-            - extra_large
-    scroll:
-      default: auto
-      selector:
-        select:
-          options:
-            - auto
-            - "off"
-            - slow
-            - normal
-            - fast
     color:
       example: [255, 255, 255]
       selector:
         color_rgb:
     sound:
-      example: event
+      default: none
       selector:
         select:
           options:
+            - none
             - event
             - reminder
             - volume
-            - none
-    display:
-      default: front
-      selector:
-        select:
-          options:
-            - front
-            - back
-            - both
     duration:
       default: 10
       selector:
@@ -82,116 +52,140 @@ notify:
       selector:
         boolean:
 
-display_text:
+notify_small_two_lines:
   target:
     device:
       integration: busybar
   fields:
-    text:
+    line_1:
       required: true
+      example: "Error occured"
       selector:
         text:
-    color:
-      example: [255, 0, 0]
+    line_2:
+      required: true
+      example: "Try again"
       selector:
-        object:
-    display:
-      default: front
+        text:
+    icon:
+      default: none
+      example: error
       selector:
         select:
           options:
-            - front
-            - back
-            - both
-    duration:
-      default: 0
-      selector:
-        number:
-          min: 0
-          max: 86400
-          unit_of_measurement: seconds
-    interrupt:
-      default: false
-      selector:
-        boolean:
-
-display_image:
-  target:
-    device:
-      integration: busybar
-  fields:
-    image:
-      required: true
-      example: "shared/images/checkmark_front_8x8.image"
-      selector:
-        text:
-    display:
-      default: front
-      selector:
-        select:
-          options: [front, back, both]
-    duration:
-      default: 0
-      selector:
-        number:
-          min: 0
-          max: 86400
-          unit_of_measurement: seconds
-    interrupt:
-      default: false
-      selector:
-        boolean:
-
-display_animation:
-  target:
-    device:
-      integration: busybar
-  fields:
-    animation:
-      required: true
-      example: "shared/animations/meeting_72x16.anim"
-      selector:
-        text:
-    loop:
-      default: true
-      selector:
-        boolean:
-    display:
-      default: front
-      selector:
-        select:
-          options: [front, back, both]
-    duration:
-      default: 0
-      selector:
-        number:
-          min: 0
-          max: 86400
-          unit_of_measurement: seconds
-    interrupt:
-      default: false
-      selector:
-        boolean:
-
-display_countdown:
-  target:
-    device:
-      integration: busybar
-  fields:
-    until:
-      required: true
-      example: "2026-06-01T16:00:00"
-      selector:
-        datetime:
+            - none
+            - check
+            - error
+            - info
+            - clock
+            - hourglass
+            - low_battery
+            - start
+            - setup
     color:
       example: [255, 255, 255]
       selector:
-        object:
-    display:
-      default: front
+        color_rgb:
+    sound:
+      default: none
       selector:
         select:
-          options: [front, back, both]
+          options:
+            - none
+            - event
+            - reminder
+            - volume
+    duration:
+      default: 10
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
+    interrupt:
+      default: false
+      selector:
+        boolean:
+
+notify_picture:
+  target:
+    device:
+      integration: busybar
+  fields:
+    picture:
+      required: true
+      example: check
+      selector:
+        select:
+          options:
+            - check
+            - error
+            - info
+            - clock
+            - hourglass
+            - low_battery
+            - start
+            - setup
+    sound:
+      default: none
+      selector:
+        select:
+          options:
+            - none
+            - event
+            - reminder
+            - volume
+    duration:
+      default: 10
+      selector:
+        number:
+          min: 0
+          max: 3600
+          unit_of_measurement: seconds
+    interrupt:
+      default: false
+      selector:
+        boolean:
+
+simple_timer:
+  target:
+    device:
+      integration: busybar
+  fields:
+    hours:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 23
+          unit_of_measurement: h
+    minutes:
+      default: 5
+      selector:
+        number:
+          min: 0
+          max: 59
+          unit_of_measurement: min
+    seconds:
+      default: 0
+      selector:
+        number:
+          min: 0
+          max: 59
+          unit_of_measurement: s
+    color:
+      example: [255, 255, 255]
+      selector:
+        color_rgb:
+    sound:
+      default: event
+      selector:
+        select:
+          options:
+            - none
+            - event
+            - reminder
+            - volume
     interrupt:
       default: false
       selector:
