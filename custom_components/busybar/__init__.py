@@ -26,12 +26,16 @@ from .const import (
     DEFAULT_TEXT_FONT,
     DOMAIN,
     ICON_TEXT_GAP,
+    NOTIFY_ONE_LINE_Y,
+    NOTIFY_TWO_LINE_Y,
     PRIORITY_DEFAULT,
     PRIORITY_INTERRUPT,
     SCROLL_RATES,
     STOCK_ICONS,
     STOCK_SOUNDS,
+    TEXT_FONTS,
     THEMES,
+    TWO_LINE_FONTS,
 )
 from .coordinator import BusyBarConfigEntry, BusyBarCoordinator
 
@@ -59,7 +63,6 @@ SERVICE_SIMPLE_TIMER = "simple_timer"
 # different functions. So the actions are named by timer behaviour, plus one
 # action to launch a preconfigured slot as-is.
 SERVICE_START_TIMER = "start_timer"
-SERVICE_START_PROFILE = "start_profile"
 SERVICE_STOP_TIMER = "stop_timer"
 SERVICE_PAUSE_TIMER = "pause_timer"
 SERVICE_RESUME_TIMER = "resume_timer"
@@ -67,8 +70,7 @@ SERVICE_SET_THEME = "set_theme"
 SERVICE_PLAY_SOUND = "play_sound"
 SERVICE_CLEAR = "clear"
 
-TIMER_MODES = ["infinite", "countdown", "pomodoro"]
-PROFILE_SLOTS = ["busy", "custom"]
+TIMER_MODES = ["infinite", "simple", "pomodoro"]
 
 
 def _rgb_to_hexaa(rgb: list[int]) -> str:
@@ -120,6 +122,48 @@ def _icon_element(eid: int, icon: tuple[str, int], duration: int) -> dict:
 def _text_x(icon: tuple[str, int] | None) -> int:
     """Left X for text: just past the icon (icon width + gap), else a small margin."""
     return icon[1] + ICON_TEXT_GAP if icon else 2
+
+
+# The draw API has no fill/rect primitive (firmware request tracked as BUSY-38),
+# so a "background color" is emulated by tiling a dense glyph across the panel:
+# four offset copies of a "[" run in `extra_large` cover the inter-glyph and
+# inter-row gaps, reading as a near-solid wash of the chosen color. The element
+# id doubles as the z-order on the device (higher == on top), so the fill uses
+# ids 0..3 and foreground content starts at FG_ID_BASE to stay above it.
+_BG_FILL_TEXT = "[" * 19
+_BG_FILL_OFFSETS = ((0, -2), (2, -2), (2, 4), (0, 4))
+FG_ID_BASE = 10
+
+
+def _background_elements(color: str, duration: int) -> list[dict]:
+    """Build the tiled-glyph fill elements that emulate a solid background."""
+    return [
+        {
+            "id": str(i),
+            "type": "text",
+            "text": _BG_FILL_TEXT,
+            "font": "extra_large",
+            "color": color,
+            "width": 72,
+            "display": "front",
+            "x": x,
+            "y": y,
+            "timeout": duration,
+        }
+        for i, (x, y) in enumerate(_BG_FILL_OFFSETS)
+    ]
+
+
+def _bg_start(call: ServiceCall, duration: int) -> tuple[list[dict], int]:
+    """Return (initial elements, first foreground id) given an optional background.
+
+    When a background_color is set, the fill elements (ids 0..3) are placed first
+    and foreground ids start at FG_ID_BASE so content renders above the fill.
+    """
+    bg = call.data.get("background_color")
+    if not bg:
+        return [], 0
+    return _background_elements(_rgb_to_hexaa(bg), duration), FG_ID_BASE
 
 
 # Optional target keys. Unlike cv.make_entity_service_schema, these do NOT
@@ -249,66 +293,86 @@ def _register_services(hass: HomeAssistant) -> None:
             await coord.async_request_refresh_full()
 
     async def _notify_one_line(call: ServiceCall) -> None:
-        message = _ascii(call.data["message"][:80])
+        message_raw = (call.data.get("message") or "")[:80]
         icon = _icon(call.data.get("icon"))
         color = _rgb_to_hexaa(call.data.get("color", [255, 255, 255]))
+        font = call.data.get("font", DEFAULT_TEXT_FONT)
         sound = call.data.get("sound", "none")
         duration = int(call.data.get("duration", 10))
         priority = PRIORITY_INTERRUPT if call.data.get("interrupt") else PRIORITY_DEFAULT
 
         text_x = _text_x(icon)
-        elements: list[dict] = []
-        eid = 0
+        elements, eid = _bg_start(call, duration)
         if icon:
             elements.append(_icon_element(eid, icon, duration))
             eid += 1
-        msg: dict[str, Any] = {
-            "id": str(eid),
-            "type": "text",
-            "text": message,
-            "font": DEFAULT_TEXT_FONT,
-            "color": color,
-            "display": "front",
-            "align": "mid_left",
-            "x": text_x,
-            "y": 8,
-            "timeout": duration,
-        }
-        # Marquee a single line only when it is too long to fit the panel.
-        if rate := _scroll_rate("auto", message):
-            msg["scroll_rate"] = rate
-            msg["width"] = 72 - text_x
-        elements.append(msg)
+        # Everything is optional: skip the text element entirely when no message
+        # was given (otherwise _ascii would render a lone space).
+        if message_raw.strip():
+            message = _ascii(message_raw)
+            # mid_left anchors the line to the vertical center, so any font height
+            # stays within the 16px panel; the exact center is tuned per font
+            # (NOTIFY_ONE_LINE_Y). A width box keeps wide text in the panel
+            # (clipped, or scrolled when long) instead of being dropped.
+            msg: dict[str, Any] = {
+                "id": str(eid),
+                "type": "text",
+                "text": message,
+                "font": font,
+                "color": color,
+                "display": "front",
+                "align": "mid_left",
+                "x": text_x,
+                "y": NOTIFY_ONE_LINE_Y.get(font, 8),
+                "width": 72 - text_x,
+                "timeout": duration,
+            }
+            if rate := _scroll_rate("auto", message):
+                msg["scroll_rate"] = rate
+            elements.append(msg)
+            eid += 1
         await _draw_and_sound(call, elements, priority, sound)
 
     async def _notify_two_lines(call: ServiceCall) -> None:
-        line_1 = _ascii(call.data["line_1"][:80])
-        line_2 = _ascii(call.data["line_2"][:80])
+        line_1_raw = (call.data.get("line_1") or "")[:80]
+        line_2_raw = (call.data.get("line_2") or "")[:80]
         icon = _icon(call.data.get("icon"))
-        color = _rgb_to_hexaa(call.data.get("color", [255, 255, 255]))
+        color_1 = _rgb_to_hexaa(call.data.get("line_1_color", [255, 255, 255]))
+        color_2 = _rgb_to_hexaa(call.data.get("line_2_color", [255, 255, 255]))
+        font = call.data.get("font", DEFAULT_TEXT_FONT)
         sound = call.data.get("sound", "none")
         duration = int(call.data.get("duration", 10))
         priority = PRIORITY_INTERRUPT if call.data.get("interrupt") else PRIORITY_DEFAULT
 
         text_x = _text_x(icon)
-        elements: list[dict] = []
-        eid = 0
+        elements, eid = _bg_start(call, duration)
         if icon:
             elements.append(_icon_element(eid, icon, duration))
             eid += 1
-        # Two stacked lines, top-anchored at y=1 and y=8 so they never overlap.
-        for line, y in ((line_1, 1), (line_2, 8)):
+        # Line 1 is anchored to the top of the panel, line 2 to the bottom, so any
+        # font fits regardless of its exact glyph height. The exact top/bottom Y is
+        # tuned per font (NOTIFY_TWO_LINE_Y) so the lines neither clip nor kiss.
+        # Both lines are optional: an empty one is simply skipped.
+        top_y, bottom_y = NOTIFY_TWO_LINE_Y.get(font, (0, 16))
+        lines = (
+            (line_1_raw, "top_left", top_y, color_1),
+            (line_2_raw, "bottom_left", bottom_y, color_2),
+        )
+        for raw, align, y, line_color in lines:
+            if not raw.strip():
+                continue
             elements.append(
                 {
                     "id": str(eid),
                     "type": "text",
-                    "text": line,
-                    "font": DEFAULT_TEXT_FONT,
-                    "color": color,
+                    "text": _ascii(raw),
+                    "font": font,
+                    "color": line_color,
                     "display": "front",
-                    "align": "top_left",
+                    "align": align,
                     "x": text_x,
                     "y": y,
+                    "width": 72 - text_x,
                     "timeout": duration,
                 }
             )
@@ -318,22 +382,25 @@ def _register_services(hass: HomeAssistant) -> None:
     async def _notify_picture(call: ServiceCall) -> None:
         # Stock catalog has no full-panel pictures yet, so a "picture" is one of
         # the stock icons shown centered on the panel.
-        icon = STOCK_ICONS[call.data["picture"]]
+        picture = call.data.get("picture")
         sound = call.data.get("sound", "none")
         duration = int(call.data.get("duration", 10))
         priority = PRIORITY_INTERRUPT if call.data.get("interrupt") else PRIORITY_DEFAULT
-        elements = [
-            {
-                "id": "0",
-                "type": "image",
-                "stock_path": icon[0],
-                "display": "front",
-                "align": "center",
-                "x": 36,
-                "y": 8,
-                "timeout": duration,
-            }
-        ]
+        elements, eid = _bg_start(call, duration)
+        # The picture is optional: without one only the background (if any) shows.
+        if picture:
+            elements.append(
+                {
+                    "id": str(eid),
+                    "type": "image",
+                    "stock_path": STOCK_ICONS[picture][0],
+                    "display": "front",
+                    "align": "center",
+                    "x": 36,
+                    "y": 8,
+                    "timeout": duration,
+                }
+            )
         await _draw_and_sound(call, elements, priority, sound)
 
     async def _simple_timer(call: ServiceCall) -> None:
@@ -395,30 +462,34 @@ def _register_services(hass: HomeAssistant) -> None:
     async def _start_timer(call: ServiceCall) -> None:
         mode = call.data.get("mode", "infinite")
         theme = call.data.get("theme", "meeting")
+        work = call.data.get("work")
+        rest = call.data.get("rest")
+        cycles = call.data.get("cycles")
+
+        # HA service forms can't disable fields per mode, so validate here:
+        # Pomodoro takes Rest and Cycles together (one without the other is rejected);
+        # Simple needs a Work duration. Infinite ignores all time fields.
+        if mode == "pomodoro" and (rest is None) != (cycles is None):
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="pomodoro_pair_required"
+            )
+        if mode == "simple" and not work:
+            raise ServiceValidationError(
+                translation_domain=DOMAIN, translation_key="work_required"
+            )
+
         for coord in _coordinators(call):
             if mode == "pomodoro":
                 await coord.api.start_pomodoro(
                     theme,
-                    int(call.data.get("work_minutes", 25)),
-                    int(call.data.get("break_minutes", 5)),
-                    int(call.data.get("cycles", 4)),
+                    int(work) if work else 25,
+                    int(rest) if rest is not None else 5,
+                    int(cycles) if cycles is not None else 4,
                 )
-            elif mode == "countdown":
-                duration = call.data.get("duration")
-                if not duration:
-                    raise ServiceValidationError(
-                        translation_domain=DOMAIN,
-                        translation_key="duration_required",
-                    )
-                await coord.api.start_simple(theme, int(duration))
+            elif mode == "simple":
+                await coord.api.start_simple(theme, int(work))
             else:
                 await coord.api.start_infinite(theme)
-            await coord.async_request_refresh_full()
-
-    async def _start_profile(call: ServiceCall) -> None:
-        slot = call.data["slot"]
-        for coord in _coordinators(call):
-            await coord.api.start_profile(slot)
             await coord.async_request_refresh_full()
 
     async def _simple_api(call: ServiceCall, method: str) -> None:
@@ -458,11 +529,13 @@ def _register_services(hass: HomeAssistant) -> None:
         _notify_one_line,
         _schema(
             {
-                vol.Required("message"): cv.string,
+                vol.Optional("message", default=""): cv.string,
                 vol.Optional("icon", default="none"): _icon_field,
+                vol.Optional("font", default=DEFAULT_TEXT_FONT): vol.In(TEXT_FONTS),
                 vol.Optional("color"): _color_field,
+                vol.Optional("background_color"): _color_field,
                 vol.Optional("sound", default="none"): _sound_field,
-                vol.Optional("duration", default=10): vol.All(vol.Coerce(int), vol.Range(0, 3600)),
+                vol.Optional("duration", default=10): vol.All(vol.Coerce(int), vol.Range(0, 120)),
                 vol.Optional("interrupt", default=False): cv.boolean,
             }
         ),
@@ -472,12 +545,15 @@ def _register_services(hass: HomeAssistant) -> None:
         _notify_two_lines,
         _schema(
             {
-                vol.Required("line_1"): cv.string,
-                vol.Required("line_2"): cv.string,
+                vol.Optional("line_1", default=""): cv.string,
+                vol.Optional("line_2", default=""): cv.string,
                 vol.Optional("icon", default="none"): _icon_field,
-                vol.Optional("color"): _color_field,
+                vol.Optional("font", default=DEFAULT_TEXT_FONT): vol.In(TWO_LINE_FONTS),
+                vol.Optional("line_1_color"): _color_field,
+                vol.Optional("line_2_color"): _color_field,
+                vol.Optional("background_color"): _color_field,
                 vol.Optional("sound", default="none"): _sound_field,
-                vol.Optional("duration", default=10): vol.All(vol.Coerce(int), vol.Range(0, 3600)),
+                vol.Optional("duration", default=10): vol.All(vol.Coerce(int), vol.Range(0, 120)),
                 vol.Optional("interrupt", default=False): cv.boolean,
             }
         ),
@@ -487,9 +563,10 @@ def _register_services(hass: HomeAssistant) -> None:
         _notify_picture,
         _schema(
             {
-                vol.Required("picture"): vol.In(list(STOCK_ICONS.keys())),
+                vol.Optional("picture"): vol.In(list(STOCK_ICONS.keys())),
+                vol.Optional("background_color"): _color_field,
                 vol.Optional("sound", default="none"): _sound_field,
-                vol.Optional("duration", default=10): vol.All(vol.Coerce(int), vol.Range(0, 3600)),
+                vol.Optional("duration", default=10): vol.All(vol.Coerce(int), vol.Range(0, 120)),
                 vol.Optional("interrupt", default=False): cv.boolean,
             }
         ),
@@ -512,12 +589,10 @@ def _register_services(hass: HomeAssistant) -> None:
         (SERVICE_START_TIMER, {
             vol.Optional("mode", default="infinite"): vol.In(TIMER_MODES),
             vol.Optional("theme", default="meeting"): vol.In(THEMES),
-            vol.Optional("duration"): vol.All(vol.Coerce(int), vol.Range(1, 1440)),
-            vol.Optional("work_minutes", default=25): vol.All(vol.Coerce(int), vol.Range(1, 180)),
-            vol.Optional("break_minutes", default=5): vol.All(vol.Coerce(int), vol.Range(1, 60)),
-            vol.Optional("cycles", default=4): vol.All(vol.Coerce(int), vol.Range(1, 20)),
+            vol.Optional("work"): vol.All(vol.Coerce(int), vol.Range(1, 1440)),
+            vol.Optional("rest"): vol.All(vol.Coerce(int), vol.Range(1, 60)),
+            vol.Optional("cycles"): vol.All(vol.Coerce(int), vol.Range(1, 20)),
         }, _start_timer),
-        (SERVICE_START_PROFILE, {vol.Required("slot"): vol.In(PROFILE_SLOTS)}, _start_profile),
         (SERVICE_SET_THEME, {vol.Required("theme"): vol.In(THEMES)}, _set_theme),
         (SERVICE_PLAY_SOUND, {vol.Required("sound"): vol.In(list(STOCK_SOUNDS.keys()))}, _play_sound),
     ):

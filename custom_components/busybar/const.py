@@ -64,6 +64,39 @@ TEXT_FONTS = [
 # (busy_regular_5); good legibility while leaving room for two lines on 72x16.
 DEFAULT_TEXT_FONT = "small"
 
+# Fonts offered for the two-line notify. Positioning anchors line 1 to the top
+# and line 2 to the bottom of the 72x16 panel, so any font fits regardless of its
+# exact glyph height — except the two tallest, where two lines simply don't fit
+# 16px, so they're excluded here (they remain available for the one-line notify).
+TWO_LINE_FONTS = ["tiny", "small", "normal", "condensed", "bold"]
+
+# Per-font vertical tuning, calibrated live on the 72x16 panel (api 23). The draw
+# fonts have slightly different glyph metrics/baselines, so the same anchor sits a
+# pixel off for some of them. Values below are the element `y` after calibration.
+#
+# one_line uses a `mid_left` anchor (vertical center). Base center is y=8; most
+# fonts read better one pixel higher, while tiny/extra_large are already centered.
+NOTIFY_ONE_LINE_Y = {
+    "tiny": 8,
+    "small": 7,
+    "normal": 7,
+    "condensed": 7,
+    "bold": 7,
+    "large": 7,
+    "extra_large": 8,
+}
+
+# two_lines anchors line 1 to the top (`top_left`) and line 2 to the bottom
+# (`bottom_left`). Each entry is (top_y, bottom_y). small sits at the raw anchors;
+# tiny pulls the lines together, the 9px fonts push them apart so they don't kiss.
+NOTIFY_TWO_LINE_Y = {
+    "tiny": (1, 15),
+    "small": (0, 16),
+    "normal": (-1, 17),
+    "condensed": (-1, 17),
+    "bold": (-1, 17),
+}
+
 # Gap (px) between a left-aligned icon and the text that follows it.
 ICON_TEXT_GAP = 2
 

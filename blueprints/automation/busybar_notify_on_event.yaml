@@ -1,7 +1,7 @@
 blueprint:
   name: BUSY Bar — Notify on event
   author: BUSY
-    description: >
+  description: >
     When a chosen entity reaches a chosen state (e.g. your washing machine goes
     to "off"/"finished"), show an icon plus a one-line message on a BUSY Bar —
     with the icon, color and sound picked from the integration's presets. You

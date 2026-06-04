@@ -8,7 +8,6 @@ notify_one_line:
       integration: busybar
   fields:
     message:
-      required: true
       example: "Laundry done!"
       selector:
         text:
@@ -27,10 +26,6 @@ notify_one_line:
             - low_battery
             - start
             - setup
-    color:
-      example: [255, 255, 255]
-      selector:
-        color_rgb:
     sound:
       default: none
       selector:
@@ -45,12 +40,36 @@ notify_one_line:
       selector:
         number:
           min: 0
-          max: 3600
+          max: 120
           unit_of_measurement: seconds
     interrupt:
       default: false
       selector:
         boolean:
+    appearance:
+      collapsed: true
+      fields:
+        font:
+          default: small
+          selector:
+            select:
+              mode: dropdown
+              options:
+                - tiny
+                - small
+                - normal
+                - condensed
+                - bold
+                - large
+                - extra_large
+        color:
+          example: [255, 255, 255]
+          selector:
+            color_rgb:
+        background_color:
+          example: [0, 0, 0]
+          selector:
+            color_rgb:
 
 notify_small_two_lines:
   target:
@@ -58,12 +77,10 @@ notify_small_two_lines:
       integration: busybar
   fields:
     line_1:
-      required: true
       example: "Error occured"
       selector:
         text:
     line_2:
-      required: true
       example: "Try again"
       selector:
         text:
@@ -82,10 +99,6 @@ notify_small_two_lines:
             - low_battery
             - start
             - setup
-    color:
-      example: [255, 255, 255]
-      selector:
-        color_rgb:
     sound:
       default: none
       selector:
@@ -100,12 +113,38 @@ notify_small_two_lines:
       selector:
         number:
           min: 0
-          max: 3600
+          max: 120
           unit_of_measurement: seconds
     interrupt:
       default: false
       selector:
         boolean:
+    appearance:
+      collapsed: true
+      fields:
+        font:
+          default: small
+          selector:
+            select:
+              mode: dropdown
+              options:
+                - tiny
+                - small
+                - normal
+                - condensed
+                - bold
+        line_1_color:
+          example: [255, 255, 255]
+          selector:
+            color_rgb:
+        line_2_color:
+          example: [255, 255, 255]
+          selector:
+            color_rgb:
+        background_color:
+          example: [0, 0, 0]
+          selector:
+            color_rgb:
 
 notify_picture:
   target:
@@ -113,7 +152,6 @@ notify_picture:
       integration: busybar
   fields:
     picture:
-      required: true
       example: check
       selector:
         select:
@@ -140,12 +178,19 @@ notify_picture:
       selector:
         number:
           min: 0
-          max: 3600
+          max: 120
           unit_of_measurement: seconds
     interrupt:
       default: false
       selector:
         boolean:
+    appearance:
+      collapsed: true
+      fields:
+        background_color:
+          example: [0, 0, 0]
+          selector:
+            color_rgb:
 
 simple_timer:
   target:
@@ -202,7 +247,7 @@ start_timer:
         select:
           options:
             - infinite
-            - countdown
+            - simple
             - pomodoro
     theme:
       default: meeting
@@ -220,46 +265,23 @@ start_timer:
             - chill_time
             - keep_out
             - busy
-    duration:
+    work:
       selector:
         number:
           min: 1
           max: 1440
           unit_of_measurement: minutes
-    work_minutes:
-      default: 25
-      selector:
-        number:
-          min: 1
-          max: 180
-          unit_of_measurement: minutes
-    break_minutes:
-      default: 5
+    rest:
       selector:
         number:
           min: 1
           max: 60
           unit_of_measurement: minutes
     cycles:
-      default: 4
       selector:
         number:
           min: 1
           max: 20
-
-start_profile:
-  target:
-    device:
-      integration: busybar
-  fields:
-    slot:
-      required: true
-      example: busy
-      selector:
-        select:
-          options:
-            - busy
-            - custom
 
 set_theme:
   target:

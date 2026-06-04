@@ -124,6 +124,111 @@
       "screen": { "name": "Screen" }
     }
   },
+  "services": {
+    "notify_one_line": {
+      "name": "Notify: one line",
+      "description": "Show a single line of text on the front display, with an optional icon, sound and colored background.",
+      "fields": {
+        "message": { "name": "Message", "description": "Text to show (up to 80 printable ASCII characters). Long text scrolls automatically." },
+        "icon": { "name": "Icon", "description": "Optional icon shown to the left of the text." },
+        "font": { "name": "Font", "description": "Text font. Sizes differ, so the layout adapts per font. Default: Small (busy 5px)." },
+        "sound": { "name": "Sound", "description": "Optional stock sound played together with the notification." },
+        "duration": { "name": "Duration", "description": "How long the notification stays on screen, in seconds." },
+        "interrupt": { "name": "Interrupt", "description": "Show on top of the running app instead of queuing behind it." },
+        "color": { "name": "Text color", "description": "Color of the message text." },
+        "background_color": { "name": "Background color", "description": "Fills the panel behind the text with this color." }
+      },
+      "sections": {
+        "appearance": { "name": "Appearance", "description": "Text and background colors." }
+      }
+    },
+    "notify_small_two_lines": {
+      "name": "Notify: two lines",
+      "description": "Show two short stacked lines on the front display, with an optional icon, sound and colored background.",
+      "fields": {
+        "line_1": { "name": "First line", "description": "Top line of text (up to 80 printable ASCII characters)." },
+        "line_2": { "name": "Second line", "description": "Bottom line of text (up to 80 printable ASCII characters)." },
+        "icon": { "name": "Icon", "description": "Optional icon shown to the left of the text." },
+        "font": { "name": "Font", "description": "Text font. Sizes differ, so the layout adapts per font. Default: Small (busy 5px)." },
+        "sound": { "name": "Sound", "description": "Optional stock sound played together with the notification." },
+        "duration": { "name": "Duration", "description": "How long the notification stays on screen, in seconds." },
+        "interrupt": { "name": "Interrupt", "description": "Show on top of the running app instead of queuing behind it." },
+        "line_1_color": { "name": "First line color", "description": "Color of the top line of text." },
+        "line_2_color": { "name": "Second line color", "description": "Color of the bottom line of text." },
+        "background_color": { "name": "Background color", "description": "Fills the panel behind the text with this color." }
+      },
+      "sections": {
+        "appearance": { "name": "Appearance", "description": "Per-line text colors and background color." }
+      }
+    },
+    "notify_picture": {
+      "name": "Notify: picture",
+      "description": "Show a stock picture centered on the front display, with an optional sound and colored background.",
+      "fields": {
+        "picture": { "name": "Picture", "description": "Stock picture to display." },
+        "sound": { "name": "Sound", "description": "Optional stock sound played together with the notification." },
+        "duration": { "name": "Duration", "description": "How long the picture stays on screen, in seconds." },
+        "interrupt": { "name": "Interrupt", "description": "Show on top of the running app instead of queuing behind it." },
+        "background_color": { "name": "Background color", "description": "Fills the panel behind the picture with this color." }
+      },
+      "sections": {
+        "appearance": { "name": "Appearance", "description": "Background color behind the picture." }
+      }
+    },
+    "simple_timer": {
+      "name": "Simple timer",
+      "description": "Show a standalone countdown timer on the front display (does not start a Busy session).",
+      "fields": {
+        "hours": { "name": "Hours", "description": "Hours part of the countdown." },
+        "minutes": { "name": "Minutes", "description": "Minutes part of the countdown." },
+        "seconds": { "name": "Seconds", "description": "Seconds part of the countdown." },
+        "color": { "name": "Color", "description": "Color of the countdown digits." },
+        "sound": { "name": "Sound", "description": "Stock sound played when the countdown reaches zero." },
+        "interrupt": { "name": "Interrupt", "description": "Show on top of the running app instead of queuing behind it." }
+      }
+    },
+    "start_timer": {
+      "name": "Start timer",
+      "description": "Start a Busy session. Pick a mode (Infinite / Simple / Pomodoro). Note: Home Assistant cannot grey out fields per mode, so fields that don't apply to the chosen mode are simply ignored.",
+      "fields": {
+        "mode": { "name": "Mode", "description": "Timer type: Infinite (open-ended), Simple (a single countdown), or Pomodoro (work/rest cycles)." },
+        "theme": { "name": "Theme", "description": "Status theme shown during the session." },
+        "work": { "name": "Work", "description": "Minutes. In Simple mode this is the countdown length; in Pomodoro mode it is the work interval." },
+        "rest": { "name": "Rest", "description": "Pomodoro rest interval, in minutes. Must be set together with Cycles." },
+        "cycles": { "name": "Cycles", "description": "Number of Pomodoro work/rest cycles. Must be set together with Rest." }
+      }
+    },
+    "set_theme": {
+      "name": "Set theme",
+      "description": "Change the status theme of the running session.",
+      "fields": {
+        "theme": { "name": "Theme", "description": "Status theme to apply." }
+      }
+    },
+    "play_sound": {
+      "name": "Play sound",
+      "description": "Play a stock sound on the device.",
+      "fields": {
+        "sound": { "name": "Sound", "description": "Stock sound to play." }
+      }
+    },
+    "clear": {
+      "name": "Clear display",
+      "description": "Remove anything this integration drew on the front display."
+    },
+    "stop_timer": {
+      "name": "Stop session",
+      "description": "Stop the running Busy session."
+    },
+    "pause_timer": {
+      "name": "Pause session",
+      "description": "Pause the running Busy session."
+    },
+    "resume_timer": {
+      "name": "Resume session",
+      "description": "Resume a paused Busy session."
+    }
+  },
   "exceptions": {
     "no_loaded_entry": {
       "message": "No BUSY Bar is set up yet."
@@ -134,8 +239,11 @@
     "theme_requires_session": {
       "message": "Start a session before changing the theme (use the Theme select or the Start timer action)."
     },
-    "duration_required": {
-      "message": "A countdown timer needs a duration. Set the duration field or pick another mode."
+    "work_required": {
+      "message": "A Simple timer needs a Work duration. Set the Work field or pick another mode."
+    },
+    "pomodoro_pair_required": {
+      "message": "Pomodoro needs Rest and Cycles set together. Provide both, or leave both empty to use the defaults."
     },
     "time_required": {
       "message": "Set a non-zero time (hours, minutes or seconds) for the timer."
