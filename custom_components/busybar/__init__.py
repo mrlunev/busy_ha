@@ -277,9 +277,23 @@ def _register_services(hass: HomeAssistant) -> None:
             )
 
     async def _draw_and_sound(
-        call: ServiceCall, elements: list[dict], priority: int, sound: str | None
+        call: ServiceCall,
+        elements: list[dict],
+        priority: int,
+        sound: str | None,
+        duration: int,
     ) -> None:
-        """Send one front-panel draw to every targeted bar, then play the sound."""
+        """Send one front-panel draw to every targeted bar, then play the sound.
+
+        Every notify field is optional. When nothing was given to draw (no text,
+        icon, picture or background), we render a solid black screen instead — the
+        notification still owns the panel, just empty. This avoids POSTing an empty
+        `elements` array (which the device rejects with HTTP 400) and never
+        silently swallows the call. (Clearing our layer would instead reveal
+        whatever is underneath, which is not what an empty notify should do.)
+        """
+        if not elements:
+            elements = _background_elements("#000000FF", duration)
         for coord in _coordinators(call):
             await coord.api.draw(
                 {
@@ -331,7 +345,7 @@ def _register_services(hass: HomeAssistant) -> None:
                 msg["scroll_rate"] = rate
             elements.append(msg)
             eid += 1
-        await _draw_and_sound(call, elements, priority, sound)
+        await _draw_and_sound(call, elements, priority, sound, duration)
 
     async def _notify_two_lines(call: ServiceCall) -> None:
         line_1_raw = (call.data.get("line_1") or "")[:80]
@@ -377,7 +391,7 @@ def _register_services(hass: HomeAssistant) -> None:
                 }
             )
             eid += 1
-        await _draw_and_sound(call, elements, priority, sound)
+        await _draw_and_sound(call, elements, priority, sound, duration)
 
     async def _notify_picture(call: ServiceCall) -> None:
         # Stock catalog has no full-panel pictures yet, so a "picture" is one of
@@ -401,7 +415,7 @@ def _register_services(hass: HomeAssistant) -> None:
                     "timeout": duration,
                 }
             )
-        await _draw_and_sound(call, elements, priority, sound)
+        await _draw_and_sound(call, elements, priority, sound, duration)
 
     async def _simple_timer(call: ServiceCall) -> None:
         total = (
