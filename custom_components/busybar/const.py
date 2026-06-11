@@ -134,6 +134,39 @@ STOCK_ICONS = {
     "setup": ("shared/images/setup_11x11.image", 11),
 }
 
+# Draw Tool icon set — 66 full-color icons added to the device firmware in FW-984
+# (shipped r835+), the same artwork offered in the BUSY web Draw Tool. They live on
+# the device as shared/images/dt_<name>.image. Verified live: every icon is exactly
+# 16x16 (full panel height), so the notify text offset (icon width + gap) is uniform.
+# Exposed under their bare <name> — the "dt_" prefix is a firmware-internal grouping,
+# not user-facing — and merged into STOCK_ICONS so the service schemas, the picker
+# options and the layout (which keys off the stored width) all pick them up. The
+# stock-mono icons above are kept for backward compatibility. The few odd spellings
+# (coctail / laught / tounge / sparkls) mirror the device filenames verbatim.
+_DT_ICON_NAMES = (
+    "apple_green", "apple_red", "apple_yellow",
+    "available", "unavailable",
+    "basketball", "football", "tennis",
+    "book", "study", "work", "home", "leaf",
+    "burger", "chicken", "pizza", "pizza_margarita", "pizza_peperoni",
+    "pie", "toast", "tomato",
+    "coffee", "tea", "coctail", "drink_1", "drink_2",
+    "dialog", "dialog_yes", "dialog_no", "yes", "no",
+    "crescent_moon_1", "crescent_moon_2", "moon_1", "moon_2",
+    "sparkls_1", "sparkls_2",
+    "heart_red", "heart_pink", "heart_orange", "heart_yellow",
+    "heart_green", "heart_blue", "heart_light_blue", "heart_violet",
+    "emoji_happy", "emoji_grinning", "emoji_laught", "emoji_heart_eyes",
+    "emoji_relief", "emoji_glasses", "emoji_tounge", "emoji_sweat_smile",
+    "emoji_awkward", "emoji_expressionless", "emoji_eyes", "emoji_surprised",
+    "emoji_sad", "emoji_cry", "emoji_fatigue", "emoji_sleep", "emoji_melted",
+    "emoji_angry", "emoji_evil", "emoji_panic", "emoji_dead",
+)
+
+STOCK_ICONS.update(
+    {name: (f"shared/images/dt_{name}.image", 16) for name in _DT_ICON_NAMES}
+)
+
 # Stock notification sounds, verified present in the device asset Manifest under
 # shared/sounds/. The previous mapping (shared/positive.snd, …) pointed at files
 # that do not exist on the device, so playback silently no-op'd (play returns 200

@@ -16,6 +16,7 @@ notify_one_line:
       example: check
       selector:
         select:
+          mode: dropdown
           options:
             - none
             - check
@@ -26,6 +27,73 @@ notify_one_line:
             - low_battery
             - start
             - setup
+            # Draw Tool icon set (16x16 color, firmware FW-984 / r835+)
+            - apple_green
+            - apple_red
+            - apple_yellow
+            - available
+            - unavailable
+            - basketball
+            - football
+            - tennis
+            - book
+            - study
+            - work
+            - home
+            - leaf
+            - burger
+            - chicken
+            - pizza
+            - pizza_margarita
+            - pizza_peperoni
+            - pie
+            - toast
+            - tomato
+            - coffee
+            - tea
+            - coctail
+            - drink_1
+            - drink_2
+            - dialog
+            - dialog_yes
+            - dialog_no
+            - "yes"
+            - "no"
+            - crescent_moon_1
+            - crescent_moon_2
+            - moon_1
+            - moon_2
+            - sparkls_1
+            - sparkls_2
+            - heart_red
+            - heart_pink
+            - heart_orange
+            - heart_yellow
+            - heart_green
+            - heart_blue
+            - heart_light_blue
+            - heart_violet
+            - emoji_happy
+            - emoji_grinning
+            - emoji_laught
+            - emoji_heart_eyes
+            - emoji_relief
+            - emoji_glasses
+            - emoji_tounge
+            - emoji_sweat_smile
+            - emoji_awkward
+            - emoji_expressionless
+            - emoji_eyes
+            - emoji_surprised
+            - emoji_sad
+            - emoji_cry
+            - emoji_fatigue
+            - emoji_sleep
+            - emoji_melted
+            - emoji_angry
+            - emoji_evil
+            - emoji_panic
+            - emoji_dead
     sound:
       default: none
       selector:
@@ -89,6 +157,7 @@ notify_small_two_lines:
       example: error
       selector:
         select:
+          mode: dropdown
           options:
             - none
             - check
@@ -99,6 +168,73 @@ notify_small_two_lines:
             - low_battery
             - start
             - setup
+            # Draw Tool icon set (16x16 color, firmware FW-984 / r835+)
+            - apple_green
+            - apple_red
+            - apple_yellow
+            - available
+            - unavailable
+            - basketball
+            - football
+            - tennis
+            - book
+            - study
+            - work
+            - home
+            - leaf
+            - burger
+            - chicken
+            - pizza
+            - pizza_margarita
+            - pizza_peperoni
+            - pie
+            - toast
+            - tomato
+            - coffee
+            - tea
+            - coctail
+            - drink_1
+            - drink_2
+            - dialog
+            - dialog_yes
+            - dialog_no
+            - "yes"
+            - "no"
+            - crescent_moon_1
+            - crescent_moon_2
+            - moon_1
+            - moon_2
+            - sparkls_1
+            - sparkls_2
+            - heart_red
+            - heart_pink
+            - heart_orange
+            - heart_yellow
+            - heart_green
+            - heart_blue
+            - heart_light_blue
+            - heart_violet
+            - emoji_happy
+            - emoji_grinning
+            - emoji_laught
+            - emoji_heart_eyes
+            - emoji_relief
+            - emoji_glasses
+            - emoji_tounge
+            - emoji_sweat_smile
+            - emoji_awkward
+            - emoji_expressionless
+            - emoji_eyes
+            - emoji_surprised
+            - emoji_sad
+            - emoji_cry
+            - emoji_fatigue
+            - emoji_sleep
+            - emoji_melted
+            - emoji_angry
+            - emoji_evil
+            - emoji_panic
+            - emoji_dead
     sound:
       default: none
       selector:
@@ -152,9 +288,10 @@ notify_picture:
       integration: busybar
   fields:
     picture:
-      example: check
+      example: pizza
       selector:
         select:
+          mode: dropdown
           options:
             - check
             - error
@@ -164,6 +301,73 @@ notify_picture:
             - low_battery
             - start
             - setup
+            # Draw Tool icon set (16x16 color, firmware FW-984 / r835+)
+            - apple_green
+            - apple_red
+            - apple_yellow
+            - available
+            - unavailable
+            - basketball
+            - football
+            - tennis
+            - book
+            - study
+            - work
+            - home
+            - leaf
+            - burger
+            - chicken
+            - pizza
+            - pizza_margarita
+            - pizza_peperoni
+            - pie
+            - toast
+            - tomato
+            - coffee
+            - tea
+            - coctail
+            - drink_1
+            - drink_2
+            - dialog
+            - dialog_yes
+            - dialog_no
+            - "yes"
+            - "no"
+            - crescent_moon_1
+            - crescent_moon_2
+            - moon_1
+            - moon_2
+            - sparkls_1
+            - sparkls_2
+            - heart_red
+            - heart_pink
+            - heart_orange
+            - heart_yellow
+            - heart_green
+            - heart_blue
+            - heart_light_blue
+            - heart_violet
+            - emoji_happy
+            - emoji_grinning
+            - emoji_laught
+            - emoji_heart_eyes
+            - emoji_relief
+            - emoji_glasses
+            - emoji_tounge
+            - emoji_sweat_smile
+            - emoji_awkward
+            - emoji_expressionless
+            - emoji_eyes
+            - emoji_surprised
+            - emoji_sad
+            - emoji_cry
+            - emoji_fatigue
+            - emoji_sleep
+            - emoji_melted
+            - emoji_angry
+            - emoji_evil
+            - emoji_panic
+            - emoji_dead
     sound:
       default: none
       selector:
