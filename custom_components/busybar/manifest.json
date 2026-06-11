@@ -4,7 +4,9 @@
   "codeowners": ["@busy-bar"],
   "config_flow": true,
   "dhcp": [
-    { "macaddress": "8C8B48*" }
+    { "macaddress": "8C8B48*" },
+    { "hostname": "busy bar*" },
+    { "registered_devices": true }
   ],
   "documentation": "https://github.com/busy-bar/busy_ha",
   "integration_type": "device",
@@ -13,5 +15,6 @@
   "loggers": ["custom_components.busybar"],
   "quality_scale": "silver",
   "requirements": [],
-  "version": "0.1.0"
+  "version": "0.1.0",
+  "zeroconf": ["_busybar._tcp.local."]
 }
