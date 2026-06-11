@@ -113,6 +113,7 @@
     "button": {
       "ok": { "name": "Press OK" },
       "back": { "name": "Press Back" },
+      "start_timer": { "name": "Start session" },
       "stop_timer": { "name": "Stop session" },
       "pause_timer": { "name": "Pause session" },
       "resume_timer": { "name": "Resume session" }

@@ -198,7 +198,12 @@ class BusyBarApi:
             "snapshot": {
                 "type": "INTERVAL",
                 "card_id": str(uuid.uuid4()),
-                "current_interval": 1,
+                # current_interval is the firmware's 0-based interval index, and the
+                # phase is its parity: even = Work, odd = Rest (see busy_timer.c:
+                # `is_rest = state->index % 2`, fresh start initialises index to 0).
+                # We must start at 0 so the session opens in the Work phase; sending 1
+                # would land on Rest.
+                "current_interval": 0,
                 "current_interval_time_total_ms": work_minutes * 60 * 1000,
                 "current_interval_time_left_ms": work_minutes * 60 * 1000,
                 "is_paused": False,

@@ -244,5 +244,8 @@ def _phase_from_snapshot(stype: str, paused: bool, interval_no: int | None) -> s
     if paused:
         return "paused"
     if stype == "INTERVAL" and interval_no is not None:
-        return "work" if interval_no % 2 == 1 else "break"
+        # current_interval is the firmware's 0-based interval index; its parity is
+        # the phase: even (incl. the initial 0) = Work, odd = Rest. Mirrors
+        # busy_timer.c `is_rest = state->index % 2`.
+        return "work" if interval_no % 2 == 0 else "break"
     return "work"
