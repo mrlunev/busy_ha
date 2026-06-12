@@ -28,6 +28,7 @@ import json
 import logging
 from collections.abc import Awaitable, Callable
 from dataclasses import dataclass
+from functools import partial
 from typing import Any
 
 _LOGGER = logging.getLogger(__name__)
@@ -189,10 +190,17 @@ class BusyBarWsClient:
             )
             return
 
+        loop = asyncio.get_running_loop()
         backoff = _BACKOFF_START
         while not self._stopped:
             try:
-                async with AsyncBusyBar(self._host, token=self._token or None) as bar:
+                # Constructing the client builds an httpx client whose default
+                # SSL context loads CA certificates from disk synchronously;
+                # keep that blocking I/O off the event loop.
+                bar = await loop.run_in_executor(
+                    None, partial(AsyncBusyBar, self._host, token=self._token or None)
+                )
+                async with bar:
                     async for message in bar.stream_status_ws():
                         if self._stopped:
                             break
