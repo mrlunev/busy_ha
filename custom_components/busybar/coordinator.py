@@ -252,9 +252,9 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
         latest = update_check.get("available_version") or None
         if update_check.get("status") != "available":
             latest = None
-        in_progress = update_install.get("event") not in (None, "none") and bool(
-            update_install.get("action") not in (None, "none")
-        )
+        in_progress = update_install.get("event") not in (None, "none") and update_install.get(
+            "action"
+        ) not in (None, "none")
 
         device_name = name.get("name") or "BUSY Bar"
         self._sync_device_name(device_name)
