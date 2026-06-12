@@ -7,7 +7,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.const import ATTR_AREA_ID, ATTR_DEVICE_ID, ATTR_ENTITY_ID, CONF_HOST
-from homeassistant.core import HomeAssistant, ServiceCall
+from homeassistant.core import HomeAssistant, ServiceCall, callback
 from homeassistant.exceptions import HomeAssistantError, ServiceValidationError
 from homeassistant.helpers import (
     config_validation as cv,
@@ -197,6 +197,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: BusyBarConfigEntry) -> b
     # triggers reauth) on failure — see coordinator._async_update_data.
     await coordinator.async_config_entry_first_refresh()
 
+    # Backfill a missing unique_id before platforms create entities, so they
+    # anchor on the serial (not the entry_id fallback) from the first setup.
+    await _async_migrate_unique_id(hass, entry, coordinator)
+
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     # Start the WebSocket push stream after platforms exist, so the entities are
@@ -209,6 +213,51 @@ async def async_unload_entry(hass: HomeAssistant, entry: BusyBarConfigEntry) -> 
     """Unload entry. Services stay registered (registered in async_setup)."""
     await entry.runtime_data.stop_ws()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+
+
+async def _async_migrate_unique_id(
+    hass: HomeAssistant, entry: BusyBarConfigEntry, coordinator: BusyBarCoordinator
+) -> None:
+    """Backfill a missing entry ``unique_id`` with the hardware serial.
+
+    Entries added before serial-anchoring (or whose unique_id was never
+    persisted) have ``unique_id is None``; identity then falls back to the
+    entry_id (see ``BusyBarEntity``), which breaks serial de-dup and the
+    wrong-device guard. Re-link the existing entity/device registry records from
+    the entry_id anchor to the serial, then set the serial as the entry
+    unique_id — so nothing is orphaned and entities keep their ids/history.
+    Idempotent: a no-op once the entry already has a unique_id.
+    """
+    if entry.unique_id is not None:
+        return
+    serial = coordinator.data.serial_number
+    if not serial:
+        # Device reported no serial — cannot anchor; retry on the next setup.
+        return
+    # Don't collide with another entry already anchored on this serial.
+    if any(
+        other.entry_id != entry.entry_id and other.unique_id == serial
+        for other in hass.config_entries.async_entries(DOMAIN)
+    ):
+        return
+
+    old_prefix = f"{entry.entry_id}_"
+    new_prefix = f"{serial}_"
+
+    @callback
+    def _relink(entity_entry: er.RegistryEntry) -> dict[str, str] | None:
+        if entity_entry.unique_id.startswith(old_prefix):
+            return {"new_unique_id": new_prefix + entity_entry.unique_id[len(old_prefix):]}
+        return None
+
+    await er.async_migrate_entries(hass, entry.entry_id, _relink)
+
+    dev_reg = dr.async_get(hass)
+    device = dev_reg.async_get_device(identifiers={(DOMAIN, entry.entry_id)})
+    if device is not None:
+        dev_reg.async_update_device(device.id, new_identifiers={(DOMAIN, serial)})
+
+    hass.config_entries.async_update_entry(entry, unique_id=serial)
 
 
 def _register_services(hass: HomeAssistant) -> None:
