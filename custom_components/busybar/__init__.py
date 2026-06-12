@@ -30,7 +30,7 @@ from .const import (
     NOTIFY_TWO_LINE_Y,
     PRIORITY_DEFAULT,
     PRIORITY_INTERRUPT,
-    SCROLL_RATES,
+    SCROLL_RATE_NORMAL,
     STOCK_ICONS,
     STOCK_SOUNDS,
     TEXT_FONTS,
@@ -88,14 +88,13 @@ def _ascii(text: str) -> str:
     return cleaned or " "
 
 
-def _scroll_rate(scroll: str, text: str) -> int:
-    """Resolve a named scroll speed to a scroll_rate (pixels/minute).
+def _auto_scroll_rate(text: str) -> int:
+    """Scroll rate (pixels/minute) for a notify line; 0 unless it overflows.
 
-    "auto" scrolls only when the text is long enough to overflow the panel.
+    Notify text uses a single auto behaviour: a line long enough to overflow the
+    72px panel gets a marquee, shorter lines stay static.
     """
-    if scroll == "auto":
-        return SCROLL_RATES["normal"] if len(text) > 12 else 0
-    return SCROLL_RATES.get(scroll, 0)
+    return SCROLL_RATE_NORMAL if len(text) > 12 else 0
 
 
 def _icon(name: str | None) -> tuple[str, int] | None:
@@ -394,7 +393,7 @@ def _register_services(hass: HomeAssistant) -> None:
                 "width": 72 - text_x,
                 "timeout": duration,
             }
-            if rate := _scroll_rate("auto", message):
+            if rate := _auto_scroll_rate(message):
                 msg["scroll_rate"] = rate
             elements.append(msg)
             eid += 1

@@ -100,14 +100,9 @@ NOTIFY_TWO_LINE_Y = {
 # Gap (px) between a left-aligned icon and the text that follows it.
 ICON_TEXT_GAP = 2
 
-# Named scroll speeds → scroll_rate (pixels per MINUTE, per the device spec).
-# "auto" is resolved at call time: scroll only when the text overflows.
-SCROLL_RATES = {
-    "off": 0,
-    "slow": 600,
-    "normal": 1200,
-    "fast": 2400,
-}
+# Auto-scroll speed (scroll_rate, pixels per MINUTE per the device spec) applied
+# to a notification line only when it is long enough to overflow the 72px panel.
+SCROLL_RATE_NORMAL = 1200
 
 # Curated front-display stock icons, verified against the device asset Manifest
 # (/api/storage/read?path=/ext/Manifest). They are small enough to sit next to
