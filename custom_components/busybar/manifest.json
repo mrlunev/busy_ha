@@ -14,7 +14,7 @@
   "issue_tracker": "https://github.com/busy-bar/busy_ha/issues",
   "loggers": ["busylib", "custom_components.busybar"],
   "quality_scale": "silver",
-  "requirements": ["busylib @ https://github.com/busy-app/busylib-py/archive/refs/heads/main.zip"],
+  "requirements": ["busylib @ git+https://github.com/busy-app/busylib-py.git@main"],
   "version": "0.1.0",
   "zeroconf": ["_busybar._tcp.local."]
 }
