@@ -3,10 +3,12 @@
 from __future__ import annotations
 
 import logging
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import datetime, timedelta
+from typing import Any
 
 from homeassistant.config_entries import ConfigEntry
+from homeassistant.const import CONF_HOST
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryAuthFailed
 from homeassistant.helpers import device_registry as dr
@@ -14,11 +16,22 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 from homeassistant.util import dt as dt_util
 
 from .api import BusyBarApi, BusyBarApiError, BusyBarAuthError
-from .const import DOMAIN, MEDIUM_POLL_FACTOR, SCAN_INTERVAL, SLOW_POLL_FACTOR
+from .const import (
+    CONF_TOKEN,
+    DOMAIN,
+    MEDIUM_POLL_FACTOR,
+    SCAN_INTERVAL,
+    SLOW_POLL_FACTOR,
+)
+from .ws import BusyBarWsClient, InputEvent, decode_timer_snapshot
 
 _LOGGER = logging.getLogger(__name__)
 
 type BusyBarConfigEntry = ConfigEntry[BusyBarCoordinator]
+
+# HA event fired for each physical input on the bar (button / rotary selector /
+# encoder), so automations and device triggers can react to it.
+EVENT_INPUT = f"{DOMAIN}_event"
 
 
 @dataclass
@@ -72,6 +85,80 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
         self._cycle = 0
         self._force_full = False
         self._cache: dict[str, dict] = {}
+        self._ws: BusyBarWsClient | None = None
+
+    def start_ws(self) -> None:
+        """Start the WebSocket push stream (best-effort; polling stays the base).
+
+        The stream pushes timer/session changes (applied instantly) and physical
+        input events (re-emitted as HA events); any other status change just
+        nudges a REST refresh so the canonical value flows through the normal
+        parse path. Failures degrade silently to polling-only.
+        """
+        if self._ws is None:
+            self._ws = BusyBarWsClient(
+                self.config_entry.data[CONF_HOST],
+                self.config_entry.data.get(CONF_TOKEN, ""),
+                on_status=self._on_ws_status,
+                on_input=self._on_ws_input,
+                on_connection_change=self._on_ws_connection,
+            )
+        self._ws.start()
+
+    async def stop_ws(self) -> None:
+        """Stop the WebSocket push stream."""
+        if self._ws is not None:
+            await self._ws.stop()
+
+    async def _on_ws_status(self, updates: list[dict[str, Any]]) -> None:
+        """Merge pushed status updates: timer/name applied live, rest → refresh."""
+        if self.data is None:
+            return
+        data = self.data
+        need_refresh = False
+        for update in updates:
+            if "timer" in update:
+                if (snap := decode_timer_snapshot(update["timer"])) is not None:
+                    data = replace(data, **_parse_snapshot(snap))
+            elif "device_name" in update:
+                if name := (update["device_name"] or {}).get("name"):
+                    self._sync_device_name(name)
+                    data = replace(data, device_name=name)
+            else:
+                # Other fields use a different (protobuf) shape than REST; rather
+                # than re-parse them here, pull the canonical value via REST.
+                need_refresh = True
+        if data is not self.data:
+            self.async_set_updated_data(data)
+        if need_refresh:
+            await self.async_request_refresh()
+
+    async def _on_ws_input(self, event: InputEvent) -> None:
+        """Re-emit a physical input event onto the HA event bus."""
+        payload: dict[str, Any] = {"type": event.kind}
+        if event.kind == "button":
+            payload["button"] = (event.button or "").lower()
+            payload["action"] = (event.action or "").lower()
+        elif event.kind == "selector":
+            payload["position"] = (event.position or "").lower()
+        elif event.kind == "encoder":
+            payload["delta"] = event.delta
+        serial = self.config_entry.unique_id
+        payload["serial_number"] = serial
+        if serial:
+            device = dr.async_get(self.hass).async_get_device(
+                identifiers={(DOMAIN, serial)}
+            )
+            if device is not None:
+                payload["device_id"] = device.id
+        self.hass.bus.async_fire(EVENT_INPUT, payload)
+
+    def _on_ws_connection(self, connected: bool) -> None:
+        """On (re)connect, pull a fresh full snapshot so push starts from truth."""
+        if connected:
+            self.config_entry.async_create_task(
+                self.hass, self.async_request_refresh()
+            )
 
     async def async_request_refresh_full(self) -> None:
         """Request a refresh that includes the medium and slow tiers.
@@ -132,31 +219,15 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
         update = self._cache.get("update") or {}
         ble = self._cache.get("ble") or {}
 
-        snap = snapshot_data.get("snapshot") or {}
-        stype = snap.get("type", "NOT_STARTED")
-        settings = snap.get("busy_bar_settings") or {}
-        theme = settings.get("theme")
-        paused = bool(snap.get("is_paused", False))
-        active = stype != "NOT_STARTED"
-
-        time_left: int | None = None
-        interval_no: int | None = None
-        if stype == "SIMPLE":
-            ms = snap.get("time_left_ms")
-            time_left = int(ms // 1000) if ms is not None else None
-        elif stype == "INTERVAL":
-            ms = snap.get("current_interval_time_left_ms")
-            time_left = int(ms // 1000) if ms is not None else None
-            interval_no = snap.get("current_interval")
-
-        phase = _phase_from_snapshot(stype, paused, interval_no)
-
-        # Expose the countdown as an absolute finish time: the frontend renders a
-        # live "in N min" that ticks down between polls, so we don't need a fast
-        # poll just to move a number. Frozen (None) while paused / not running.
-        finishes_at: datetime | None = None
-        if active and not paused and time_left is not None:
-            finishes_at = dt_util.utcnow() + timedelta(seconds=time_left)
+        session = _parse_snapshot(snapshot_data)
+        stype = session["snapshot_type"]
+        theme = session["theme"]
+        active = session["active"]
+        paused = session["paused"]
+        phase = session["phase"]
+        time_left = session["time_remaining_sec"]
+        finishes_at = session["finishes_at"]
+        interval_no = session["current_interval"]
 
         device = (status.get("device") or {}) if status else {}
         # Guard against a DHCP IP reshuffle silently pointing our host at a
@@ -236,6 +307,51 @@ class BusyBarCoordinator(DataUpdateCoordinator[BusyBarRuntime]):
         self._synced_name = name
         if device.name != name:
             dev_reg.async_update_device(device.id, name=name)
+
+
+def _parse_snapshot(snapshot_data: dict[str, Any]) -> dict[str, Any]:
+    """Derive the session fields from a ``/api/busy/snapshot`` payload.
+
+    Shared by the REST poll and the WebSocket ``timer`` update (whose JSON
+    snapshot is byte-identical to this endpoint), so the live timer/phase stays
+    consistent across both paths.
+    """
+    snap = snapshot_data.get("snapshot") or {}
+    stype = snap.get("type", "NOT_STARTED")
+    settings = snap.get("busy_bar_settings") or {}
+    theme = settings.get("theme")
+    paused = bool(snap.get("is_paused", False))
+    active = stype != "NOT_STARTED"
+
+    time_left: int | None = None
+    interval_no: int | None = None
+    if stype == "SIMPLE":
+        ms = snap.get("time_left_ms")
+        time_left = int(ms // 1000) if ms is not None else None
+    elif stype == "INTERVAL":
+        ms = snap.get("current_interval_time_left_ms")
+        time_left = int(ms // 1000) if ms is not None else None
+        interval_no = snap.get("current_interval")
+
+    phase = _phase_from_snapshot(stype, paused, interval_no)
+
+    # Expose the countdown as an absolute finish time: the frontend renders a
+    # live "in N min" that ticks down between polls, so we don't need a fast
+    # poll just to move a number. Frozen (None) while paused / not running.
+    finishes_at: datetime | None = None
+    if active and not paused and time_left is not None:
+        finishes_at = dt_util.utcnow() + timedelta(seconds=time_left)
+
+    return {
+        "snapshot_type": stype,
+        "theme": theme,
+        "active": active,
+        "paused": paused,
+        "phase": phase,
+        "time_remaining_sec": time_left,
+        "finishes_at": finishes_at,
+        "current_interval": interval_no,
+    }
 
 
 def _phase_from_snapshot(stype: str, paused: bool, interval_no: int | None) -> str:

@@ -25,3 +25,7 @@ tests/
 docs/
 pyproject.toml
 requirements_test.txt
+
+# Local BSB firmware checkout (reference for integration dev / audit)
+.cursor/_input_from_human/bsb-firmware/
+bsb-firmware/

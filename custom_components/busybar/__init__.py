@@ -199,11 +199,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: BusyBarConfigEntry) -> b
 
     entry.runtime_data = coordinator
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+    # Start the WebSocket push stream after platforms exist, so the entities are
+    # ready to receive pushed updates. Polling remains the base/fallback.
+    coordinator.start_ws()
     return True
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: BusyBarConfigEntry) -> bool:
     """Unload entry. Services stay registered (registered in async_setup)."""
+    await entry.runtime_data.stop_ws()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
 
 

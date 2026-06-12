@@ -230,6 +230,19 @@
       "description": "Resume a paused Busy session."
     }
   },
+  "device_automation": {
+    "trigger_type": {
+      "ok_pressed": "OK button pressed",
+      "back_pressed": "Back button pressed",
+      "start_pressed": "Start button pressed",
+      "selector_busy": "Selector turned to BUSY",
+      "selector_custom": "Selector turned to Custom",
+      "selector_off": "Selector turned to Off",
+      "selector_apps": "Selector turned to Apps",
+      "selector_settings": "Selector turned to Settings",
+      "encoder_rotated": "Encoder rotated"
+    }
+  },
   "exceptions": {
     "no_loaded_entry": {
       "message": "No BUSY Bar is set up yet."
